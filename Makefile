@@ -3,7 +3,7 @@
 CXX = mpic++
 CXXFLAGS = -std=c++17 -DQMP_COMMS -DHAVE_QIO -DMULTI_GPU
 CPPFLAGS = -fPIC -MD -MP -O3 -Wall -shared
-QUDA_DIR = /data/d10b/users/ylin/quda/build
+QUDA_DIR = /data/d10b/users/ylin/quda/build_1080
 CUDA_DIR = /opt/software/cuda-11.2.0
 
 # I don't know why you need to link it, or qmp undefined symbol error

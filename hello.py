@@ -14,7 +14,7 @@ clover_coeff = 1.0 # placeholder, must be equal to kappa*csw
 cpu_prec = quda.enum_quda.QUDA_DOUBLE_PRECISION
 cuda_prec = quda.enum_quda.QUDA_DOUBLE_PRECISION
 gauge_site_size = 18 # storing all 9 complex numbers from SU(3)
-grid_size = np.array([1, 1, 1, 8]) # grid_size (x, y, z, t) 
+grid_size = np.array([1, 1, 1, 2]) # grid_size (x, y, z, t) 
 
 assert MPI.Is_initialized() == False, "MPI is initialized before QUDA initialization"
 quda.init_comms(grid_size)
@@ -33,6 +33,8 @@ gauge_param.cpu_prec = cpu_prec
 gauge_param.cuda_prec = cuda_prec
 gauge_param.cuda_prec_precondition = cuda_prec
 
+gauge_param.gauge_order = quda.enum_quda.QUDA_QDP_GAUGE_ORDER
+gauge_param.t_boundary = quda.enum_quda.QUDA_ANTI_PERIODIC_T 
 gauge_param.reconstruct = quda.enum_quda.QUDA_RECONSTRUCT_NO # store all 18 real numbers explicitly
 gauge_param.reconstruct_precondition = quda.enum_quda.QUDA_RECONSTRUCT_NO
 assert int(gauge_param.reconstruct_precondition) == gauge_site_size
@@ -43,7 +45,22 @@ gauge_param.tadpole_coeff = 1.0
 gauge_param.ga_pad = 0
 gauge_param.mom_ga_pad = 0
 gauge_param.gauge_fix = quda.enum_quda.QUDA_GAUGE_FIXED_NO
-gauge_param.struct_size = quda.sizeof(gauge_param)
+
+comm = MPI.COMM_WORLD
+rank = comm.Get_rank()
+
+pad_size = 0
+# For multi-GPU, ga_pad must be large enough to store a time-slice
+if np.sum(grid_size) != 4:
+    x_face_size = gauge_param.X[1] * gauge_param.X[2] * gauge_param.X[3] / 2
+    y_face_size = gauge_param.X[0] * gauge_param.X[2] * gauge_param.X[3] / 2
+    z_face_size = gauge_param.X[0] * gauge_param.X[1] * gauge_param.X[3] / 2
+    t_face_size = gauge_param.X[0] * gauge_param.X[1] * gauge_param.X[2] / 2
+    pad_size = max([x_face_size, y_face_size, z_face_size, t_face_size])
+gauge_param.ga_pad = int(pad_size)
+
+gauge_param.struct_size = quda.cfunc.sizeof(gauge_param)
+
 
 # Set clover params based on tests/utils/set_params.cpp
 inv_param.dslash_type = quda.enum_quda.QUDA_CLOVER_WILSON_DSLASH
@@ -67,10 +84,24 @@ inv_param.Nsteps = 2
 inv_param.tol = 1e-12
 inv_param.tol_restart = 1e-6
 
+# Create the gauge field buffer and load the file
+gauge_field = np.full((4, np.prod(gauge_param.X), 3, 3, 2), fill_value=np.nan, dtype=np.double)
+quda.qio_field.read_gauge_field(gauge_file, gauge_field, cpu_prec, 
+                                gauge_param.X, gauge_site_size)
 
-gauge_field = quda.qio_field.read_gauge_field(gauge_file, cpu_prec, 
-                                              gauge_param.X, gauge_site_size)
+assert np.nan not in gauge_field, "nan in gauge field"
+assert gauge_field.flags.c_contiguous, "Fail to load gauge field. The data is not C contiguous"
 
+gauge_field_complex = gauge_field.view(dtype=np.complex128)[..., 0] # eliminate the last singleton dimension from viewing
+assert gauge_field_complex.base is gauge_field # True, they share the same memory
+gauge_field = gauge_field_complex
+
+quda.loadGaugeQuda(gauge_field, gauge_param) # load to device
+
+
+# Test unitarity
+#UUdagger = np.einsum("...ab,...cb -> ...ac", gauge_field, np.conj(gauge_field), optimize=True)
+                              
 
 """
 print(gauge_param.X)

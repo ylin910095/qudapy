@@ -1,0 +1,35 @@
+0. bind quda_constants.h
+
+
+1. On how to bind raw pointer array that can be assigned with [] 
+    https://github.com/pybind/pybind11/issues/2149 for C-style arrays conversions
+    The latest comment works properly if we are careful (don't use auto when casting!)
+
+2. Info on how to use numpy https://people.duke.edu/~ccc14/cspy/18G_C++_Python_pybind11.html
+
+
+3. Try different compilers!
+
+notes: appends are dangerous 
+
+https://stackoverflow.com/questions/44659924/returning-numpy-arrays-via-pybind11
+
+https://stackoverflow.com/questions/57777314/pybind11-buffer-protocol-with-class-members
+
+https://stackoverflow.com/questions/54876346/pybind11-and-stdvector-how-to-free-data-using-capsules
+
+4. c_5 and b_5 members in QudaInvertParam are not implemented at the moment 
+   at the python side, because of the difficulties in convert C complex to std::complex
+
+5. void *preconditioner, void *deflation_op, and void *eig_param are also not implemented yet
+   due to void * data type.
+
+6. Binding ndarray  
+https://stackoverflow.com/questions/60949451/how-to-send-a-cvmat-to-python-over-shared-memory/60959732#60959732
+
+7. See this (second answer) in casting float to complex and vice versa without changing/copying memory
+https://stackoverflow.com/questions/2598734/numpy-creating-a-complex-array-from-2-real-ones/20955309
+https://github.com/numpy/numpy/issues/4360
+
+8. Some style guidelines 
+https://developer.lsst.io/pybind11/style.html

@@ -15,8 +15,10 @@
 #include "quda.h"
 #include "mpi_comm_handle.h"
 #include "communicator_quda.h"
+
 // Binding headers
-#include "utility_templates.hpp"
+#include "cfunc_pybind.hpp"
+#include "utility.hpp"
 #include "enum_quda_pybind.hpp"
 #include "qio_field_pybind.hpp"
 #include "communicator_quda_pybind.hpp"
@@ -42,8 +44,10 @@ PYBIND11_MODULE(quda, m)
            example
     )pbdoc";
 
-    // Initilize definitionsin enum_quda.h. Initialize this first to 
-    // define types.
+    // Initialize some common C functions
+    init_cfunc_pybind(m);
+
+    // Initialize this first to define types
     init_enum_quda_pybind(m);
 
     // Initialize quda.h
@@ -58,20 +62,6 @@ PYBIND11_MODULE(quda, m)
 
 void init_quda_pybind(pybind11::module_ &m) 
 {
-    // Define some common utility bindings
-    // For struct_size member in QudaGaugeParam
-    m.def(
-        "sizeof", 
-        [](const pybind11::object &obj) {
-          try {
-              QudaGaugeParam o = obj.cast<QudaGaugeParam>();
-              return sizeof(o);
-          } catch(const pybind11::cast_error &e) {
-              throw pybind11::cast_error("sizeof is only implemented for QudaGaugeParam");
-          };
-        }
-    );
-
     // Wrapper around initComms in tests/utils/host_utilities.cpp
     // to initiate communications either with QMP or MPI
     // TODO: Maybe separte into multiple files to expose finer details?
@@ -87,7 +77,7 @@ void init_quda_pybind(pybind11::module_ &m)
         QMP_init_msg_passing(&argc, &argv, QMP_THREAD_SINGLE, &tl);
 
         // Make sure the QMP logical ordering matches QUDA's
-        int map[] = {0, 1, 2, 3}; // [t, z, y, x] row-major with X fastest moving
+        int map[] = {0, 1, 2, 3}; // [t, z, y, x] row-major with x fastest moving
         QMP_declare_logical_topology_map(comm_dims.data(), n_dims, map, n_dims);
         int rank = QMP_get_node_number();
 
@@ -190,11 +180,8 @@ void init_quda_pybind(pybind11::module_ &m)
       cl.def_readwrite("site_size", &QudaGaugeParam::site_size);
 }
 
-{ // QudaInvertParam file:quda.h 
+{ // QudaInvertParam file:quda.h
 
-      // For the double_complex type defined in quda.h but undefined 
-      // at the end there.
-      
       pybind11::class_<QudaInvertParam, std::unique_ptr<QudaInvertParam>> 
           cl(m, "QudaInvertParam", "Parameters relating to the solver and the "
                 "choice of Dirac operator.");
@@ -465,19 +452,33 @@ void init_quda_pybind(pybind11::module_ &m)
       cl.def_readwrite("extlib_type", &QudaInvertParam::extlib_type);
       cl.def_readwrite("native_blas_lapack", &QudaInvertParam::native_blas_lapack);
     }
-	// newQudaGaugeParam() file:quda.h
-	m.def("newQudaGaugeParam", (QudaGaugeParam (*)()) &newQudaGaugeParam, 
-        "A new QudaGaugeParam should always be initialized immediately\n "
-        "after it's defined (and prior to explicitly setting its members)\n "
-        "using this function.  Typical usage is as follows:\n\n   "
-        "QudaGaugeParam gauge_param = newQudaGaugeParam();\n\n"
-        "C++: newQudaGaugeParam() --> struct QudaGaugeParam_s");
 
-	// newQudaInvertParam() file:quda.h 
-	m.def("newQudaInvertParam", (QudaInvertParam (*)()) &newQudaInvertParam, 
-        "A new QudaInvertParam should always be initialized immediately\n "
-        "after it's defined (and prior to explicitly setting its members)\n "
-        "using this function.  Typical usage is as follows:\n\n   "
-        "QudaInvertParam invert_param = newQudaInvertParam();\n\n"
-        "C++: newQudaInvertParam() --> struct QudaInvertParam_s");
+    m.def("loadGaugeQuda", 
+        [] (pybind11::array &gauge, QudaGaugeParam* param)
+        {
+            pybind11::buffer_info buf = gauge.request();
+            void *tmp[4]; // because QIO does not like *gauge directly for some reasons
+            auto local_volume = param->X[0] * param->X[1] * param->X[2] * param->X[3];
+            int gauge_site_size = 18; // (real + imag) * 3 * 3 
+            init_gauge_pointer_array(tmp, buf.ptr, param->cpu_prec, 
+                                     local_volume, gauge_site_size);
+            loadGaugeQuda(tmp, param);
+        }
+        );
+
+    // newQudaGaugeParam() file:quda.h
+    m.def("newQudaGaugeParam", (QudaGaugeParam(*)()) &newQudaGaugeParam, 
+          "A new QudaGaugeParam should always be initialized immediately\n "
+          "after it's defined (and prior to explicitly setting its members)\n "
+          "using this function.  Typical usage is as follows:\n\n   "
+          "QudaGaugeParam gauge_param = newQudaGaugeParam();\n\n"
+          "C++: newQudaGaugeParam() --> struct QudaGaugeParam_s");
+
+    // newQudaInvertParam() file:quda.h 
+    m.def("newQudaInvertParam", (QudaInvertParam (*)()) &newQudaInvertParam, 
+          "A new QudaInvertParam should always be initialized immediately\n "
+          "after it's defined (and prior to explicitly setting its members)\n "
+          "using this function.  Typical usage is as follows:\n\n   "
+          "QudaInvertParam invert_param = newQudaInvertParam();\n\n"
+          "C++: newQudaInvertParam() --> struct QudaInvertParam_s");
 }; // end init_quda_pybind

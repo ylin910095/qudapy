@@ -35,30 +35,49 @@ void init_qio_field_pybind(pybind11::module_ &m)
         auto gauge_ptr = static_cast<void*>(buf.ptr);
 
         // Safety checks
-        if (buf.ndim != 1 && buf.ndim != 5)
-            throw std::runtime_error("Number of dimensions must be one or five of form [ndir, spatial, ncolor, ncolor, real_complex]");
+        if (buf.ndim != 1 && buf.ndim != 4 && buf.ndim != 5)
+            throw std::runtime_error("Number of dimensions must be one, four, or five with the "
+                                     "shape of (ndir, spatial, ncolor, ncolor[, real_complex])");
         std::vector<pybind11::ssize_t> shape1d = {n_dir * local_volume * gauge_site_size};
+        std::vector<pybind11::ssize_t> shape4d = {n_dir, local_volume, 3, 3};
         std::vector<pybind11::ssize_t> shape5d = {n_dir, local_volume, 3, 3, 2};
         
         if (buf.ndim == 1 && buf.shape != shape1d)
+        {
+            throw std::runtime_error("Inconsistent numpy array shape");
+        } else if (buf.ndim == 4 && buf.shape != shape4d)
         {
             throw std::runtime_error("Inconsistent numpy array shape");
         } else if (buf.ndim == 5 && buf.shape != shape5d)
         {
             throw std::runtime_error("Inconsistent numpy array shape");
         }
-        if (buf.itemsize != data_size)
+
+        // Treat complex inputs in a special way - itemsize can be twice the data_size
+        if (buf.ndim != 4 && buf.itemsize != data_size)
+        {
+            throw std::runtime_error("Inconsistent numpy array itemsize");
+        } else if (buf.ndim == 4 && buf.itemsize != 2 * data_size)
         {
             throw std::runtime_error("Inconsistent numpy array itemsize");
         }
+
+        std::vector<pybind11::ssize_t> strides4d = {
+                                                    data_size * local_volume,
+                                                    9 * data_size,
+                                                    3 * data_size,
+                                                    data_size
+                                                   };
         std::vector<pybind11::ssize_t> strides5d = {
                                                     18 * data_size * local_volume,
                                                     2 * 9 * data_size,
                                                     2 * 3 * data_size,
                                                     2 * data_size,
                                                     data_size
-                                                   };
+                                                    };
         if (buf.ndim == 5 && buf.strides != strides5d) 
+            throw std::runtime_error("Inconsistent numpy array strides");
+        if (buf.ndim == 4 && buf.strides != strides4d) 
             throw std::runtime_error("Inconsistent numpy array strides");
 
         // Read the gauge field

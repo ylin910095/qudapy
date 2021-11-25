@@ -17,7 +17,11 @@ QUDA_INCLUDE_PATH := -I$(QUDA_DIR)/include -I$(QUDA_DIR)/usqcd/include
 CUDA_INCLUDE_PATH := -I$(CUDA_DIR)/include
 PYBIND_INCLUDE_PATH := $(shell python3 -m pybind11 --includes)
 MPI4PY_INCLUDE_PATH := -I$(shell python -c "import mpi4py; print(mpi4py.get_include())")
-CXX_INCLUDE_PATH = $(PYBIND_INCLUDE_PATH) $(MPI4PY_INCLUDE_PATH) $(QUDA_INCLUDE_PATH) $(CUDA_INCLUDE_PATH)
+
+# The order of includes is important here due to header file name conflicts
+# For example, object.h appears in both quda and python3
+# For our purpoes, we want to include quda/object.h first, so always put it first
+CXX_INCLUDE_PATH = $(QUDA_INCLUDE_PATH) $(CUDA_INCLUDE_PATH) $(PYBIND_INCLUDE_PATH) $(MPI4PY_INCLUDE_PATH)
 
 LDFLAGS += -L$(QUDA_DIR)/lib -L$(QUDA_DIR)/usqcd/lib
 LDLIBS += -lquda -lqio -lqmp -llime
@@ -37,4 +41,4 @@ quda: $(SRC:%.cpp=%.o)
 
 .PHONY: clean
 clean:
-	rm -f *.o quda$(PYTHON_MODUDLE_SUFFIX)
+	rm -f *.o quda$(PYTHON_MODUDLE_SUFFIX) *.d

@@ -7,10 +7,6 @@
 #include <pybind11/complex.h> // for std::complex automatic conversion
 #include <pybind11/numpy.h> // for numpy array automatic conversion
 
-#if defined(MPI_COMMS)
-    #include <mpi.h>
-#endif
-
 // Quda headers
 #include "quda.h"
 #include "mpi_comm_handle.h"
@@ -22,6 +18,7 @@
 #include "enum_quda_pybind.hpp"
 #include "qio_field_pybind.hpp"
 #include "communicator_quda_pybind.hpp"
+#include "lattice_field_pybind.hpp"
 
 // Declaration
 void init_quda_pybind(pybind11::module_ &m);
@@ -58,6 +55,9 @@ PYBIND11_MODULE(quda, m)
 
     // Initialize communicator_quda.h 
     init_communicator_quda_pybind(m);
+
+    // Initialize lattice_field.h
+    init_lattice_field_pybind(m);
 }
 
 void init_quda_pybind(pybind11::module_ &m) 
@@ -451,20 +451,7 @@ void init_quda_pybind(pybind11::module_ &m)
       cl.def_readwrite("chrono_precision", &QudaInvertParam::chrono_precision);
       cl.def_readwrite("extlib_type", &QudaInvertParam::extlib_type);
       cl.def_readwrite("native_blas_lapack", &QudaInvertParam::native_blas_lapack);
-    }
-
-    m.def("loadGaugeQuda", 
-        [] (pybind11::array &gauge, QudaGaugeParam* param)
-        {
-            pybind11::buffer_info buf = gauge.request();
-            void *tmp[4]; // because QIO does not like *gauge directly for some reasons
-            auto local_volume = param->X[0] * param->X[1] * param->X[2] * param->X[3];
-            int gauge_site_size = 18; // (real + imag) * 3 * 3 
-            init_gauge_pointer_array(tmp, buf.ptr, param->cpu_prec, 
-                                     local_volume, gauge_site_size);
-            loadGaugeQuda(tmp, param);
-        }
-        );
+  }
 
     // newQudaGaugeParam() file:quda.h
     m.def("newQudaGaugeParam", (QudaGaugeParam(*)()) &newQudaGaugeParam, 
@@ -481,4 +468,36 @@ void init_quda_pybind(pybind11::module_ &m)
           "using this function.  Typical usage is as follows:\n\n   "
           "QudaInvertParam invert_param = newQudaInvertParam();\n\n"
           "C++: newQudaInvertParam() --> struct QudaInvertParam_s");
+
+    m.def("loadGaugeQuda", 
+        [] (pybind11::array &gauge, QudaGaugeParam* param)
+        {
+            pybind11::buffer_info buf = gauge.request();
+            void *tmp[4]; // because QIO does not like *gauge directly for some reasons
+            auto local_volume = param->X[0] * param->X[1] * param->X[2] * param->X[3];
+            int gauge_site_size = 18; // (real + imag) * 3 * 3 for QDP ordering
+
+            init_gauge_pointer_array(tmp, buf.ptr, param->cpu_prec, 
+                                     local_volume, gauge_site_size);
+            loadGaugeQuda(tmp, param);
+        }
+    );
+
+    m.def("freeGaugeQuda", &freeGaugeQuda);
+
+    m.def("plaqQuda",
+        [] (pybind11::array_t<double> plaq)
+        {
+            pybind11::buffer_info buf = plaq.request();
+
+            // Safety checks
+            if (buf.ndim != 1 || buf.shape[0] != 3)
+                throw std::runtime_error("plaq must be a 1D array");
+            if (buf.shape[0] != 3)
+                throw std::runtime_error("plaq must be a 1D array of size 3");
+
+            double *tmp = (double*) buf.ptr;
+            plaqQuda(tmp);
+        }
+    );
 }; // end init_quda_pybind

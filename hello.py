@@ -14,7 +14,7 @@ clover_coeff = 1.0 # placeholder, must be equal to kappa*csw
 cpu_prec = quda.enum_quda.QUDA_DOUBLE_PRECISION
 cuda_prec = quda.enum_quda.QUDA_DOUBLE_PRECISION
 gauge_site_size = 18 # storing all 9 complex numbers from SU(3)
-grid_size = np.array([1, 1, 1, 2]) # grid_size (x, y, z, t) 
+grid_size = np.array([2, 2, 1, 1]) # grid_size (x, y, z, t) 
 
 assert MPI.Is_initialized() == False, "MPI is initialized before QUDA initialization"
 quda.init_comms(grid_size)
@@ -34,7 +34,7 @@ gauge_param.cuda_prec = cuda_prec
 gauge_param.cuda_prec_precondition = cuda_prec
 
 gauge_param.gauge_order = quda.enum_quda.QUDA_QDP_GAUGE_ORDER
-gauge_param.t_boundary = quda.enum_quda.QUDA_ANTI_PERIODIC_T 
+gauge_param.t_boundary = quda.enum_quda.QUDA_PERIODIC_T 
 gauge_param.reconstruct = quda.enum_quda.QUDA_RECONSTRUCT_NO # store all 18 real numbers explicitly
 gauge_param.reconstruct_precondition = quda.enum_quda.QUDA_RECONSTRUCT_NO
 assert int(gauge_param.reconstruct_precondition) == gauge_site_size
@@ -92,12 +92,11 @@ quda.qio_field.read_gauge_field(gauge_file, gauge_field, cpu_prec,
 assert np.nan not in gauge_field, "nan in gauge field"
 assert gauge_field.flags.c_contiguous, "Fail to load gauge field. The data is not C contiguous"
 
-gauge_field_complex = gauge_field.view(dtype=np.complex128)[..., 0] # eliminate the last singleton dimension from viewing
-assert gauge_field_complex.base is gauge_field # True, they share the same memory
-gauge_field = gauge_field_complex
-
 quda.loadGaugeQuda(gauge_field, gauge_param) # load to device
-
+plaq = np.full(3, np.nan, dtype=np.double) 
+quda.plaqQuda(plaq)
+quda.freeGaugeQuda()
+print(f"total plaq = {plaq[0]}, spatial plaq = {plaq[1]}, temporal plaq = {plaq[2]}")
 
 # Test unitarity
 #UUdagger = np.einsum("...ab,...cb -> ...ac", gauge_field, np.conj(gauge_field), optimize=True)

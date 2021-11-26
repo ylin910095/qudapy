@@ -11,6 +11,8 @@
 
 #include "quda.h"
 
+
+// Declare AND define utility templates
 template<typename Struct_Type, typename Attr_Type, int array_size>
 pybind11::array_t<Attr_Type> attr_getter(pybind11::object& obj, 
                                          Attr_Type (Struct_Type::* attr)[array_size]) 
@@ -39,18 +41,4 @@ void attr_setter(pybind11::object& obj, Attr_Type (Struct_Type::* attr)[array_si
     }
     Attr_Type* ptr = static_cast<Attr_Type*>(buf.ptr); // cast address 
     for (int i=0; i<array_size; i++) (o.*attr)[i] = ptr[i];
-}
-
-void init_gauge_pointer_array(void *ptr[4], const void* gauge_ptr,
-                              QudaPrecision prec, int local_volume, int site_size)
-{
-    if (prec == QUDA_DOUBLE_PRECISION) 
-    {   
-        for (int dir = 0; dir < 4; dir++) ptr[dir] = &((double *) gauge_ptr)[dir * local_volume * site_size];
-    } else if (prec == QUDA_SINGLE_PRECISION)
-    {  
-        for (int dir = 0; dir < 4; dir++) ptr[dir] = &((float *) gauge_ptr)[dir * local_volume * site_size];
-    } else {
-        throw pybind11::type_error("Unknown data precision");
-    }
 }

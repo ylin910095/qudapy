@@ -3,4 +3,7 @@
 binder/*
 quda.cpython-*.so
 .vscode/*
-
+*.sh
+*.pyc
+*.txt
+test_quda/*

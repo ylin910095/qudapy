@@ -10,9 +10,10 @@
 // Quda headers
 #include "quda.h"
 #include "mpi_comm_handle.h"
-#include "communicator_quda.h"
+#include "communicator_quda.h" // for communicator_quda_pybind.hpp
 
 // Binding headers
+#include "object_pybind.hpp" // for quda::object abstract base class. Don't use in python
 #include "cfunc_pybind.hpp"
 #include "utility.hpp"
 #include "enum_quda_pybind.hpp"

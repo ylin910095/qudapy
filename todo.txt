@@ -33,3 +33,11 @@ https://github.com/numpy/numpy/issues/4360
 
 8. Some style guidelines 
 https://developer.lsst.io/pybind11/style.html
+
+9. Some function will return an numpy array of fixed length. HOWEVER, not all elements within the 
+   range are valid as they are constructed with pointer with certain max length. 
+   For example, quda::LatticeField::X() and quda::LatticeField::r()
+   So use their return values with caution.
+
+10. Functions return void pointer without knowing the precision are difficult to bind. Skip them for now.
+    For example, see quda::LatticeField::myFace_hd

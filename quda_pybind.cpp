@@ -20,6 +20,7 @@
 #include "qio_field_pybind.hpp"
 #include "communicator_quda_pybind.hpp"
 #include "lattice_field_pybind.hpp"
+#include "color_spinor_field_pybind.hpp"
 
 // Declaration
 void init_quda_pybind(pybind11::module_ &m);
@@ -51,6 +52,9 @@ PYBIND11_MODULE(quda, m)
     // Initialize quda.h
     init_quda_pybind(m);
 
+    // Initialize object.h
+    init_object_pybind(m);
+
     // Initialize qio_field.h 
     init_qio_field_pybind(m);
 
@@ -59,6 +63,9 @@ PYBIND11_MODULE(quda, m)
 
     // Initialize lattice_field.h
     init_lattice_field_pybind(m);
+
+    // Initialize color_spinor_field.h
+    init_color_spinor_field_pybind(m);
 }
 
 void init_quda_pybind(pybind11::module_ &m) 
@@ -476,7 +483,7 @@ void init_quda_pybind(pybind11::module_ &m)
             pybind11::buffer_info buf = gauge.request();
             void *tmp[4]; // because QIO does not like *gauge directly for some reasons
             auto local_volume = param->X[0] * param->X[1] * param->X[2] * param->X[3];
-            int gauge_site_size = 18; // (real + imag) * 3 * 3 for QDP ordering
+            int gauge_site_size = 18; // 18 = 3 * 3 * (real + imag) for QDP ordering
 
             init_gauge_pointer_array(tmp, buf.ptr, param->cpu_prec, 
                                      local_volume, gauge_site_size);

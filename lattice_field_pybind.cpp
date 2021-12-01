@@ -1,40 +1,48 @@
 #include "lattice_field_pybind.hpp"
 
-void init_LatticeField(pybind11::module_ &m); // decalred to be defined later
+namespace py = pybind11; 
 
-void init_lattice_field_pybind(pybind11::module_ &m) 
+void init_LatticeField(py::module_ &m); // decalred to be defined later
+
+void init_lattice_field_pybind(py::module_ &m) 
 {
-	pybind11::enum_<quda::QudaOffsetCopyMode>(m, "QudaOffsetCopyMode")
+	py::enum_<quda::QudaOffsetCopyMode>(m, "QudaOffsetCopyMode")
 		.value("QUDA_SUCCESS", quda::QudaOffsetCopyMode::COLLECT)
 		.value("QUDA_ERROR", quda::QudaOffsetCopyMode::DISPERSE);
 
     // LatticeFieldParam
-    pybind11::class_<quda::LatticeFieldParam, std::unique_ptr<quda::LatticeFieldParam>> 
+    py::class_<quda::LatticeFieldParam, std::unique_ptr<quda::LatticeFieldParam>> 
           cl(m, "LatticeFieldParam");
 
     // Constructors
-    cl.def(pybind11::init( [](){ return new quda::LatticeFieldParam(); } ) );
-    cl.def(pybind11::init( 
-        [](int nDim, const std::array<int, 4> x, int pad, QudaPrecision precision,
-           QudaGhostExchange ghostExchange)
-        { return new quda::LatticeFieldParam(nDim, x.data(), pad, precision, ghostExchange); }),   
+    cl.def(py::init( [](){ return new quda::LatticeFieldParam(); } ) );
+    cl.def(py::init( 
+        [](int nDim, const py::array x, int pad, QudaPrecision precision,
+           QudaGhostExchange ghostExchange) { 
+            py::buffer_info buf = x.request();
+            if (buf.ndim != nDim) {
+                throw py::value_error("nDim mismatch in x");
+            }
+            auto x_ptr = static_cast<int*>(buf.ptr);
+            return new quda::LatticeFieldParam(nDim, x_ptr, pad, precision, ghostExchange); 
+        }),   
         "nDim"_a, "x"_a, "pad"_a, "precision"_a, "ghostExchange"_a = QUDA_GHOST_EXCHANGE_PAD
     ); 
-    cl.def(pybind11::init<const QudaGaugeParam &>());
-    cl.def(pybind11::init<const quda::LatticeField &>());
+    cl.def(py::init<const QudaGaugeParam &>());
+    cl.def(py::init<const quda::LatticeField &>());
 
     // Public members
     cl.def("Precision", &quda::LatticeFieldParam::Precision);
     cl.def("GhostPrecision", &quda::LatticeFieldParam::GhostPrecision);
     cl.def_readwrite("nDim", &quda::LatticeFieldParam::nDim);
     cl.def_property("x", 
-        [](pybind11::object& self) 
-        {
-          return attr_getter<quda::LatticeFieldParam, int, QUDA_MAX_DIM>(self, &quda::LatticeFieldParam::x);
+        [](py::object& self) {
+            quda::LatticeFieldParam &obj = self.cast<quda::LatticeFieldParam &>();
+            return attr_getter<quda::LatticeFieldParam, int>(self, obj.nDim, &obj.x[0]);
         },
-        [](pybind11::object &self, const pybind11::array_t<int> &a) 
-        {
-          return attr_setter<quda::LatticeFieldParam, int, QUDA_MAX_DIM>(self, &quda::LatticeFieldParam::x, a);
+        [](py::object &self, const py::array_t<int> &a) {
+            quda::LatticeFieldParam &obj = self.cast<quda::LatticeFieldParam &>();
+            return attr_setter<quda::LatticeFieldParam, int>(self, obj.nDim, &obj.x[0], a);
         }
       );
 
@@ -43,13 +51,15 @@ void init_lattice_field_pybind(pybind11::module_ &m)
     cl.def_readwrite("mem_type", &quda::LatticeFieldParam::mem_type);
     cl.def_readwrite("ghostExchange", &quda::LatticeFieldParam::ghostExchange);
     cl.def_property("r", 
-        [](pybind11::object& self) 
+        [](py::object& self) 
         {
-          return attr_getter<quda::LatticeFieldParam, int, QUDA_MAX_DIM>(self, &quda::LatticeFieldParam::r);
+            quda::LatticeFieldParam &obj = self.cast<quda::LatticeFieldParam &>();
+            return attr_getter<quda::LatticeFieldParam, int>(self, obj.nDim, &obj.r[0]);
         },
-        [](pybind11::object &self, const pybind11::array_t<int> &a) 
+        [](py::object &self, const py::array_t<int> &a) 
         {
-          return attr_setter<quda::LatticeFieldParam, int, QUDA_MAX_DIM>(self, &quda::LatticeFieldParam::r, a);
+            quda::LatticeFieldParam &obj = self.cast<quda::LatticeFieldParam &>();
+            return attr_setter<quda::LatticeFieldParam, int>(self, obj.nDim, &obj.r[0], a);
         }
     );
     cl.def_readwrite("scale", &quda::LatticeFieldParam::scale);
@@ -57,10 +67,10 @@ void init_lattice_field_pybind(pybind11::module_ &m)
     init_LatticeField(m);
 }
 
-void init_LatticeField(pybind11::module_ &m) 
+void init_LatticeField(py::module_ &m) 
 {
     // LatticeField, inherited from Object in object.h
-    pybind11::class_<quda::LatticeField, quda::Object, std::unique_ptr<quda::LatticeField>> 
+    py::class_<quda::LatticeField, quda::Object, std::unique_ptr<quda::LatticeField>> 
           cl(m, "LatticeField");
 
     // No constructors -- it is an abstract class
@@ -88,13 +98,12 @@ void init_LatticeField(pybind11::module_ &m)
     cl.def_readwrite_static("ghost_field_reset", &quda::LatticeField::ghost_field_reset);
     cl.def("Ndim", &quda::LatticeField::Ndim); 
     cl.def("X", 
-        [](pybind11::object& self)
+        [](py::object& self)
         {    
             quda::LatticeField& o = self.cast<quda::LatticeField&>(); 
             auto x = o.X();
-            return pybind11::array_t<int>(QUDA_MAX_DIM, x);
-        }, 
-        pybind11::return_value_policy::copy);
+            return py::array_t<int>(QUDA_MAX_DIM, x);
+        });
 
     // virtual int full_dim(int d) const = 0; // virtual. Not implemented
 
@@ -105,15 +114,14 @@ void init_LatticeField(pybind11::module_ &m)
 
     // Overloaded functions
     cl.def("SurfaceCB", 
-        [](pybind11::object& self)
+        [](py::object& self)
         {    
             quda::LatticeField& o = self.cast<quda::LatticeField&>(); 
             auto scb = o.SurfaceCB();
-            return pybind11::array_t<int>(QUDA_MAX_DIM, scb);
-        }, 
-        pybind11::return_value_policy::copy);
+            return py::array_t<int>(QUDA_MAX_DIM, scb);
+        });
     cl.def("SurfaceCB", 
-        [](pybind11::object& self, const int i) 
+        [](py::object& self, const int i) 
         {
             quda::LatticeField& o = self.cast<quda::LatticeField&>(); 
             return o.SurfaceCB(i);
@@ -124,13 +132,12 @@ void init_LatticeField(pybind11::module_ &m)
     cl.def("Pad", &quda::LatticeField::Pad);
 
     cl.def("R", 
-        [](pybind11::object& self)
+        [](py::object& self)
         {    
             quda::LatticeField& o = self.cast<quda::LatticeField&>(); 
             auto r = o.R();
-            return pybind11::array_t<int>(QUDA_MAX_DIM, r);
-        }, 
-        pybind11::return_value_policy::copy);
+            return py::array_t<int>(QUDA_MAX_DIM, r);
+        });
     
     cl.def("GhostExchange", &quda::LatticeField::GhostExchange);
     cl.def("Precision", &quda::LatticeField::Precision);
@@ -138,13 +145,13 @@ void init_LatticeField(pybind11::module_ &m)
 
     // overload_cast seems to have difficulty when the overloaded function has no argument?
     cl.def("Scale", 
-        [](pybind11::object& self) 
+        [](py::object& self) 
         {
             quda::LatticeField& o = self.cast<quda::LatticeField&>(); 
             return o.Scale();
         }
     );
-    cl.def("Scale", pybind11::overload_cast<double>(&quda::LatticeField::Scale));
+    cl.def("Scale", py::overload_cast<double>(&quda::LatticeField::Scale));
 
     /*  // Virtual functions. Skip      
      virtual QudaSiteSubset SiteSubset() const { return siteSubset; }

@@ -20,11 +20,13 @@ assert MPI.Is_initialized() == False, "MPI is initialized before QUDA initializa
 quda.init_comms(grid_size)
 assert MPI.Is_initialized(), "MPI is not initialized by QUDA"
 
-# Create a new gauge parameter object.
-# Don't use quda.QudaGaugeParam() directly because it will not
+# Create param objects
+# Don't use quda.QudaGaugeParam() and  QudaInvertParam() directly because it will not
 # properly initialize the fields!
+# But it is ok to use quda.ColorSpinorParam() - just remember to initialize it also!
 gauge_param = quda.newQudaGaugeParam() 
 inv_param = quda.newQudaInvertParam() 
+cs_param = quda.ColorSpinorParam() 
 
 # Set gauge params
 gauge_param.type = quda.enum_quda.QUDA_SU3_LINKS
@@ -50,7 +52,7 @@ comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 
 pad_size = 0
-# For multi-GPU, ga_pad must be large enough to store a time-slice
+# For multi-GPU, ga_pad must be large enough to store a time-slice (in GPU, not in host)
 if np.sum(grid_size) != 4:
     x_face_size = gauge_param.X[1] * gauge_param.X[2] * gauge_param.X[3] / 2
     y_face_size = gauge_param.X[0] * gauge_param.X[2] * gauge_param.X[3] / 2
@@ -84,10 +86,17 @@ inv_param.Nsteps = 2
 inv_param.tol = 1e-12
 inv_param.tol_restart = 1e-6
 
+# Initialize the spinor params
+cs_param.nColor = 3
+cs_param.nSpin = 4
+cs_param.nDim = 4
+cs_param.x = gauge_param.X
+
 # Create the gauge field buffer and load the file
 gauge_field = np.full((4, np.prod(gauge_param.X), 3, 3, 2), fill_value=np.nan, dtype=np.double)
 quda.qio_field.read_gauge_field(gauge_file, gauge_field, cpu_prec, 
                                 gauge_param.X, gauge_site_size)
+gauge_field = gauge_field.view(np.complex128)[..., 0] # eliminate the last complex dimension after view
 
 assert np.nan not in gauge_field, "nan in gauge field"
 assert gauge_field.flags.c_contiguous, "Fail to load gauge field. The data is not C contiguous"
@@ -99,8 +108,15 @@ quda.freeGaugeQuda()
 print(f"total plaq = {plaq[0]}, spatial plaq = {plaq[1]}, temporal plaq = {plaq[2]}")
 
 # Test unitarity
-#UUdagger = np.einsum("...ab,...cb -> ...ac", gauge_field, np.conj(gauge_field), optimize=True)
-                              
+UUdagger = np.einsum("...ab,...cb -> ...ac", gauge_field, np.conj(gauge_field), optimize=True)
+identity_shape = (4, np.prod(gauge_param.X), 3, 3) 
+unit_gauge = np.zeros(identity_shape, dtype=np.complex128)
+idx = np.arange(3)
+unit_gauge[..., idx, idx] = 1.0   
+assert np.allclose(UUdagger, unit_gauge), "gauge field is not unitary"
+print("Test passed: gauge_field is unitary")
+
+# Create some spinor fields             
 
 """
 print(gauge_param.X)

@@ -140,12 +140,14 @@ void init_quda_pybind(pybind11::module_ &m)
       cl.def_readwrite("location", &QudaGaugeParam::location);
     
       cl.def_property("X", 
-        [](pybind11::object& obj) {
-          // 4d lattice
-          return attr_getter<QudaGaugeParam, int, 4>(obj, &QudaGaugeParam::X);
+        [](pybind11::object& self) {
+            // 4d lattice
+            QudaGaugeParam &obj = self.cast<QudaGaugeParam &>();
+            return attr_getter<QudaGaugeParam, int>(self, 4, &obj.X[0]);
         },
-        [](pybind11::object &obj, const pybind11::array_t<int> &a) {
-          return attr_setter<QudaGaugeParam, int, 4>(obj, &QudaGaugeParam::X, a);
+        [](pybind11::object &self, const pybind11::array_t<int> &a) {
+            QudaGaugeParam &obj = self.cast<QudaGaugeParam &>();
+            return attr_setter<QudaGaugeParam, int>(self, 4, &obj.X[0], a);
         }
       );
       
@@ -276,103 +278,105 @@ void init_quda_pybind(pybind11::module_ &m)
       cl.def_readwrite("num_src_per_sub_partition", &QudaInvertParam::num_src_per_sub_partition);
 
       cl.def_property("split_grid", 
-        [](pybind11::object& obj) {
-          return attr_getter<QudaInvertParam, int, QUDA_MAX_DIM>(obj, 
-                        &QudaInvertParam::split_grid);
+        [](pybind11::object &self) {
+            QudaInvertParam &obj = self.cast<QudaInvertParam &>();
+            return attr_getter<QudaInvertParam, int>(self, QUDA_MAX_DIM, &obj.split_grid[0]);
         },
-        [](pybind11::object &obj, const pybind11::array_t<int> &a) {
-          return attr_setter<QudaInvertParam, int, QUDA_MAX_DIM>(obj, 
-                        &QudaInvertParam::split_grid, a);
+        [](pybind11::object &self, const pybind11::array_t<int> &a) {
+          QudaInvertParam &obj = self.cast<QudaInvertParam &>();
+          return attr_setter<QudaInvertParam, int>(self, QUDA_MAX_DIM, &obj.split_grid[0], a); 
         }
       );
 
       cl.def_readwrite("overlap", &QudaInvertParam::overlap);
 
       cl.def_property("offset", 
-        [](pybind11::object& obj) {
-          return attr_getter<QudaInvertParam, double, QUDA_MAX_MULTI_SHIFT>(obj, 
-                        &QudaInvertParam::offset);
+        [](pybind11::object &self) {
+            QudaInvertParam &obj = self.cast<QudaInvertParam &>();
+            return attr_getter<QudaInvertParam, double>(self, QUDA_MAX_MULTI_SHIFT, &obj.offset[0]);
         },
-        [](pybind11::object &obj, const pybind11::array_t<double> &a) {
-          return attr_setter<QudaInvertParam, double, QUDA_MAX_MULTI_SHIFT>(obj, 
-                        &QudaInvertParam::offset, a);
+        [](pybind11::object &self, const pybind11::array_t<double> &a) {
+          QudaInvertParam &obj = self.cast<QudaInvertParam &>();
+          return attr_setter<QudaInvertParam, double>(self, QUDA_MAX_MULTI_SHIFT, &obj.offset[0], a); 
         }
       );
 
       cl.def_property("tol_offset", 
-        [](pybind11::object& obj) {
-          return attr_getter<QudaInvertParam, double, QUDA_MAX_MULTI_SHIFT>(obj, 
-                        &QudaInvertParam::tol_offset);
+        [](pybind11::object &self) {
+            QudaInvertParam &obj = self.cast<QudaInvertParam &>();
+            return attr_getter<QudaInvertParam, double>(self, QUDA_MAX_MULTI_SHIFT, &obj.tol_offset[0]);
         },
-        [](pybind11::object &obj, const pybind11::array_t<double> &a) {
-          return attr_setter<QudaInvertParam, double, QUDA_MAX_MULTI_SHIFT>(obj, 
-                        &QudaInvertParam::tol_offset, a);
+        [](pybind11::object &self, const pybind11::array_t<double> &a) {
+          QudaInvertParam &obj = self.cast<QudaInvertParam &>();
+          return attr_setter<QudaInvertParam, double>(self, QUDA_MAX_MULTI_SHIFT, &obj.tol_offset[0], a); 
         }
       );
 
       cl.def_property("tol_hq_offset", 
-        [](pybind11::object& obj) {
-          return attr_getter<QudaInvertParam, double, QUDA_MAX_MULTI_SHIFT>(obj, 
-                        &QudaInvertParam::tol_hq_offset);
+        [](pybind11::object &self) {
+            QudaInvertParam &obj = self.cast<QudaInvertParam &>();
+            return attr_getter<QudaInvertParam, double>(self, QUDA_MAX_MULTI_SHIFT, &obj.tol_hq_offset[0]);
         },
-        [](pybind11::object &obj, const pybind11::array_t<double> &a) {
-          return attr_setter<QudaInvertParam, double, QUDA_MAX_MULTI_SHIFT>(obj, 
-                        &QudaInvertParam::tol_hq_offset, a);
+        [](pybind11::object &self, const pybind11::array_t<double> &a) {
+          QudaInvertParam &obj = self.cast<QudaInvertParam &>();
+          return attr_setter<QudaInvertParam, double>(self, QUDA_MAX_MULTI_SHIFT, &obj.tol_hq_offset[0], a); 
         }
       );
 
       cl.def_property("true_res_offset", 
-        [](pybind11::object& obj) {
-          return attr_getter<QudaInvertParam, double, QUDA_MAX_MULTI_SHIFT>(obj, 
-                        &QudaInvertParam::true_res_offset);
+        [](pybind11::object &self) {
+            QudaInvertParam &obj = self.cast<QudaInvertParam &>();
+            return attr_getter<QudaInvertParam, double>(self, QUDA_MAX_MULTI_SHIFT, &obj.true_res_offset[0]);
         },
-        [](pybind11::object &obj, const pybind11::array_t<double> &a) {
-          return attr_setter<QudaInvertParam, double, QUDA_MAX_MULTI_SHIFT>(obj, 
-                        &QudaInvertParam::true_res_offset, a);
+        [](pybind11::object &self, const pybind11::array_t<double> &a) {
+          QudaInvertParam &obj = self.cast<QudaInvertParam &>();
+          return attr_setter<QudaInvertParam, double>(self, QUDA_MAX_MULTI_SHIFT, &obj.true_res_offset[0], a); 
         }
       );
 
       cl.def_property("iter_res_offset", 
-        [](pybind11::object& obj) {
-          return attr_getter<QudaInvertParam, double, QUDA_MAX_MULTI_SHIFT>(obj, 
-                        &QudaInvertParam::iter_res_offset);
+        [](pybind11::object &self) {
+            QudaInvertParam &obj = self.cast<QudaInvertParam &>();
+            return attr_getter<QudaInvertParam, double>(self, QUDA_MAX_MULTI_SHIFT, &obj.iter_res_offset[0]);
         },
-        [](pybind11::object &obj, const pybind11::array_t<double> &a) {
-          return attr_setter<QudaInvertParam, double, QUDA_MAX_MULTI_SHIFT>(obj, 
-                        &QudaInvertParam::iter_res_offset, a);
+        [](pybind11::object &self, const pybind11::array_t<double> &a) {
+          QudaInvertParam &obj = self.cast<QudaInvertParam &>();
+          return attr_setter<QudaInvertParam, double>(self, QUDA_MAX_MULTI_SHIFT, &obj.iter_res_offset[0], a); 
         }
       );
 
       cl.def_property("true_res_hq_offset", 
-        [](pybind11::object& obj) {
-          return attr_getter<QudaInvertParam, double, QUDA_MAX_MULTI_SHIFT>(obj, 
-                        &QudaInvertParam::true_res_hq_offset);
+        [](pybind11::object &self) {
+            QudaInvertParam &obj = self.cast<QudaInvertParam &>();
+            return attr_getter<QudaInvertParam, double>(self, QUDA_MAX_MULTI_SHIFT, &obj.true_res_hq_offset[0]);
         },
-        [](pybind11::object &obj, const pybind11::array_t<double> &a) {
-          return attr_setter<QudaInvertParam, double, QUDA_MAX_MULTI_SHIFT>(obj, 
-                        &QudaInvertParam::true_res_hq_offset, a);
+        [](pybind11::object &self, const pybind11::array_t<double> &a) {
+          QudaInvertParam &obj = self.cast<QudaInvertParam &>();
+          return attr_setter<QudaInvertParam, double>(self, QUDA_MAX_MULTI_SHIFT, &obj.true_res_hq_offset[0], a); 
         }
       );
 
       cl.def_property("residue", 
-        [](pybind11::object& obj) {
-          return attr_getter<QudaInvertParam, double, QUDA_MAX_MULTI_SHIFT>(obj, 
-                        &QudaInvertParam::residue);
+        [](pybind11::object &self) {
+            QudaInvertParam &obj = self.cast<QudaInvertParam &>();
+            return attr_getter<QudaInvertParam, double>(self, QUDA_MAX_MULTI_SHIFT, &obj.residue[0]);
         },
-        [](pybind11::object &obj, const pybind11::array_t<double> &a) {
-          return attr_setter<QudaInvertParam, double, QUDA_MAX_MULTI_SHIFT>(obj, 
-                        &QudaInvertParam::residue, a);
+        [](pybind11::object &self, const pybind11::array_t<double> &a) {
+          QudaInvertParam &obj = self.cast<QudaInvertParam &>();
+          return attr_setter<QudaInvertParam, double>(self, QUDA_MAX_MULTI_SHIFT, &obj.residue[0], a); 
         }
       );
 
       cl.def_readwrite("compute_action", &QudaInvertParam::compute_action);
 
       cl.def_property("action", 
-        [](pybind11::object& obj) {
-          return attr_getter<QudaInvertParam, double, 2>(obj, &QudaInvertParam::action);
+        [](pybind11::object &self) {
+            QudaInvertParam &obj = self.cast<QudaInvertParam &>();
+            return attr_getter<QudaInvertParam, double>(self, 2, &obj.action[0]);
         },
-        [](pybind11::object &obj, const pybind11::array_t<double> &a) {
-          return attr_setter<QudaInvertParam, double, 2>(obj, &QudaInvertParam::action, a);
+        [](pybind11::object &self, const pybind11::array_t<double> &a) {
+          QudaInvertParam &obj = self.cast<QudaInvertParam &>();
+          return attr_setter<QudaInvertParam, double>(self, 2, &obj.action[0], a); 
         }
       );
 
@@ -406,11 +410,13 @@ void init_quda_pybind(pybind11::module_ &m)
       cl.def_readwrite("compute_clover_trlog", &QudaInvertParam::compute_clover_trlog);
 
       cl.def_property("trlogA", 
-        [](pybind11::object& obj) {
-          return attr_getter<QudaInvertParam, double, 2>(obj, &QudaInvertParam::trlogA);
+        [](pybind11::object &self) {
+            QudaInvertParam &obj = self.cast<QudaInvertParam &>();
+            return attr_getter<QudaInvertParam, double>(self, 2, &obj.trlogA[0]);
         },
-        [](pybind11::object &obj, const pybind11::array_t<double> &a) {
-          return attr_setter<QudaInvertParam, double, 2>(obj, &QudaInvertParam::trlogA, a);
+        [](pybind11::object &self, const pybind11::array_t<double> &a) {
+          QudaInvertParam &obj = self.cast<QudaInvertParam &>();
+          return attr_setter<QudaInvertParam, double>(self, 2, &obj.trlogA[0], a); 
         }
       );
 

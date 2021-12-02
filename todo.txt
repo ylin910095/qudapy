@@ -41,3 +41,8 @@ https://developer.lsst.io/pybind11/style.html
 
 10. Functions return void pointer without knowing the precision are difficult to bind. Skip them for now.
     For example, see quda::LatticeField::myFace_hd
+
+11. Non-polymorphic inheritance stuff (LatticeParamField has not virtual members)
+    https://stackoverflow.com/questions/66499414/pybind11-not-downcasting-to-non-polymorphic-base-class
+    https://github.com/pybind/pybind11/issues/645
+    https://github.com/pybind/pybind11/issues/1148

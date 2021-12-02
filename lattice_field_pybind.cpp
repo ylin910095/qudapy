@@ -10,12 +10,18 @@ void init_lattice_field_pybind(py::module_ &m)
 		.value("QUDA_SUCCESS", quda::QudaOffsetCopyMode::COLLECT)
 		.value("QUDA_ERROR", quda::QudaOffsetCopyMode::DISPERSE);
 
+    // LatticeFieldParam is NOT polymorphic, so it causes problesm with 
+    // inheritance in pybind for some reaons. To be safe, all the members
+    // will be implemnted directly in their pybind classes, which include
+    // CloverFieldParam, ColorSpinorParam, and GaugeFieldParam
+    /*
     // LatticeFieldParam
-    py::class_<quda::LatticeFieldParam, std::unique_ptr<quda::LatticeFieldParam>> 
+    py::class_<quda::LatticeFieldParam> 
           cl(m, "LatticeFieldParam");
 
     // Constructors
-    cl.def(py::init( [](){ return new quda::LatticeFieldParam(); } ) );
+    cl.def(py::init<>());
+
     cl.def(py::init( 
         [](int nDim, const py::array x, int pad, QudaPrecision precision,
            QudaGhostExchange ghostExchange) { 
@@ -34,15 +40,26 @@ void init_lattice_field_pybind(py::module_ &m)
     // Public members
     cl.def("Precision", &quda::LatticeFieldParam::Precision);
     cl.def("GhostPrecision", &quda::LatticeFieldParam::GhostPrecision);
+
+    cl.def("print", 
+        [](const py::object &self) {
+            auto obj = py::cast<quda::LatticeFieldParam &>(self);
+            printfQuda("nDim = %d\n", obj.nDim);
+            for (int d=0; d<obj.nDim; d++) printfQuda("x[%d] = %d\n", d, obj.x[d]);
+            printfQuda("precision = %d\n", obj.Precision());
+            printfQuda("ghost_precision = %d\n", obj.GhostPrecision());
+        }
+    ); // man-made for debugging
+
     cl.def_readwrite("nDim", &quda::LatticeFieldParam::nDim);
     cl.def_property("x", 
         [](py::object& self) {
             quda::LatticeFieldParam &obj = self.cast<quda::LatticeFieldParam &>();
-            return attr_getter<quda::LatticeFieldParam, int>(self, obj.nDim, &obj.x[0]);
+            return attr_getter<quda::LatticeFieldParam, int>(self, QUDA_MAX_DIM, &obj.x[0]);
         },
         [](py::object &self, const py::array_t<int> &a) {
             quda::LatticeFieldParam &obj = self.cast<quda::LatticeFieldParam &>();
-            return attr_setter<quda::LatticeFieldParam, int>(self, obj.nDim, &obj.x[0], a);
+            return attr_setter<quda::LatticeFieldParam, int>(self, QUDA_MAX_DIM, &obj.x[0], a);
         }
       );
 
@@ -63,14 +80,14 @@ void init_lattice_field_pybind(py::module_ &m)
         }
     );
     cl.def_readwrite("scale", &quda::LatticeFieldParam::scale);
-
+    */
     init_LatticeField(m);
 }
 
 void init_LatticeField(py::module_ &m) 
 {
     // LatticeField, inherited from Object in object.h
-    py::class_<quda::LatticeField, quda::Object, std::unique_ptr<quda::LatticeField>> 
+    py::class_<quda::LatticeField, std::unique_ptr<quda::LatticeField>, quda::Object> 
           cl(m, "LatticeField");
 
     // No constructors -- it is an abstract class

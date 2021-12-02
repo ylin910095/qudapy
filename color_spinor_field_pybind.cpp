@@ -46,15 +46,77 @@ void check_lattice_site_index(const py::buffer_info &buf,
 
 void init_ColorSpinorParam(py::module_ &m) {
     // ColorSpinorParam
-    py::class_<quda::ColorSpinorParam, quda::LatticeFieldParam, std::unique_ptr<quda::ColorSpinorParam>> 
-          cl(m, "ColorSpinorParam");
+    py::class_<quda::ColorSpinorParam> cl(m, "ColorSpinorParam");
 
+    // Members from LatticeFieldParam because it is not polymorphic atm
+    // Constructors
+    cl.def(py::init<>());
+
+    cl.def(py::init( 
+        [](int nDim, const py::array x, int pad, QudaPrecision precision,
+           QudaGhostExchange ghostExchange) { 
+            py::buffer_info buf = x.request();
+            if (buf.ndim != nDim) {
+                throw py::value_error("nDim mismatch in x");
+            }
+            int* x_ptr = static_cast<int*>(buf.ptr);
+            quda::LatticeFieldParam* csparam = new quda::LatticeFieldParam(nDim, x_ptr, pad, precision, ghostExchange); 
+            return static_cast<quda::ColorSpinorParam*>(csparam); // hack for non-polymorphic downcasting
+        }),   
+        "nDim"_a, "x"_a, "pad"_a, "precision"_a, "ghostExchange"_a = QUDA_GHOST_EXCHANGE_PAD
+    ); 
+    cl.def(py::init( 
+        [](const QudaGaugeParam &qgp) { 
+            quda::LatticeFieldParam* csparam = new quda::LatticeFieldParam(qgp); 
+            return static_cast<quda::ColorSpinorParam*>(csparam); // hack for non-polymorphic downcasting
+        }));
+    cl.def(py::init( 
+        [](const quda::LatticeField &lf) { 
+            quda::LatticeFieldParam* csparam = new quda::LatticeFieldParam(lf); 
+            return static_cast<quda::ColorSpinorParam*>(csparam); // hack for non-polymorphic downcasting
+        }));
+
+    // Public members
+    cl.def("Precision", &quda::ColorSpinorParam::Precision);
+    cl.def("GhostPrecision", &quda::ColorSpinorParam::GhostPrecision);
+
+    cl.def_readwrite("nDim", &quda::ColorSpinorParam::nDim);
+    cl.def_property("x", 
+        [](py::object& self) {
+            quda::ColorSpinorParam &obj = self.cast<quda::ColorSpinorParam &>();
+            return attr_getter<quda::ColorSpinorParam, int>(self, QUDA_MAX_DIM, &obj.x[0]);
+        },
+        [](py::object &self, const py::array_t<int> &a) {
+            quda::ColorSpinorParam &obj = self.cast<quda::ColorSpinorParam &>();
+            return attr_setter<quda::ColorSpinorParam, int>(self, QUDA_MAX_DIM, &obj.x[0], a);
+        }
+      );
+
+    cl.def_readwrite("pad", &quda::ColorSpinorParam::pad);
+    cl.def_readwrite("siteSubset", &quda::ColorSpinorParam::siteSubset);
+    cl.def_readwrite("mem_type", &quda::ColorSpinorParam::mem_type);
+    cl.def_readwrite("ghostExchange", &quda::ColorSpinorParam::ghostExchange);
+    cl.def_property("r", 
+        [](py::object& self) 
+        {
+            quda::ColorSpinorParam &obj = self.cast<quda::ColorSpinorParam &>();
+            return attr_getter<quda::ColorSpinorParam, int>(self, obj.nDim, &obj.r[0]);
+        },
+        [](py::object &self, const py::array_t<int> &a) 
+        {
+            quda::ColorSpinorParam &obj = self.cast<quda::ColorSpinorParam &>();
+            return attr_setter<quda::ColorSpinorParam, int>(self, obj.nDim, &obj.r[0], a);
+        }
+    );
+    cl.def_readwrite("scale", &quda::ColorSpinorParam::scale);
+
+    // Actual ColorSpinorFieldParam stuff
     // Constructors 
     cl.def(py::init<const quda::ColorSpinorField &>());
-
-    cl.def(py::init( [](){ return new quda::ColorSpinorParam(); } ) );
+    cl.def(py::init<>());   
 
     // Used to create cpu params
+    
     cl.def(py::init(
         [](py::array &V, QudaInvertParam &inv_param, 
            const py::array_t<int> &X, const bool pc_solution, QudaFieldLocation location)
@@ -89,14 +151,7 @@ void init_ColorSpinorParam(py::module_ &m) {
 
     cl.def_readwrite("suggested_parity", &quda::ColorSpinorParam::suggested_parity);
 
-    // implement v and norm
-
-    /* 
-     void *v; // pointer to field
-     void *norm;
-    */
-
-   cl.def_property("v", 
+    cl.def_property("v", 
         [](py::object& self) {   
             throw std::runtime_error("Don't use this to access the vector - use ColorSpinorField instead");    
         }, 
@@ -115,13 +170,14 @@ void init_ColorSpinorParam(py::module_ &m) {
     cl.def("setPrecision", &quda::ColorSpinorParam::setPrecision,
            "precision"_a, "ghost_precision"_a = QUDA_INVALID_PRECISION,
            "force_native"_a = false);
-
+    
     // Print utility
     cl.def("print", &quda::ColorSpinorParam::print);
+
 } // init_ColorSpinorParam
 
 void init_ColorSpinorField(py::module_ &m) {
-    py::class_<quda::ColorSpinorField, quda::LatticeField, std::unique_ptr<quda::ColorSpinorField>> 
+    py::class_<quda::ColorSpinorField, std::unique_ptr<quda::ColorSpinorField>, quda::LatticeField> 
           cl(m, "ColorSpinorField");
 
     // No constructors -- it is an abstract class
@@ -351,7 +407,7 @@ void init_ColorSpinorField(py::module_ &m) {
 
 void init_cpuColorSpinorField(py::module_ &m) {
     // ColorSpinorParam
-    py::class_<quda::cpuColorSpinorField, quda::ColorSpinorField, std::unique_ptr<quda::cpuColorSpinorField>> 
+    py::class_<quda::cpuColorSpinorField, std::unique_ptr<quda::cpuColorSpinorField>, quda::ColorSpinorField> 
           cl(m, "cpuColorSpinorField");
     
     // Constructors

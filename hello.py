@@ -14,7 +14,7 @@ clover_coeff = 1.0 # placeholder, must be equal to kappa*csw
 cpu_prec = quda.enum_quda.QUDA_DOUBLE_PRECISION
 cuda_prec = quda.enum_quda.QUDA_DOUBLE_PRECISION
 gauge_site_size = 18 # storing all 9 complex numbers from SU(3)
-grid_size = np.array([2, 2, 1, 1]) # grid_size (x, y, z, t) 
+grid_size = np.array([2, 1, 2, 1]) # grid_size (x, y, z, t) 
 
 assert MPI.Is_initialized() == False, "MPI is initialized before QUDA initialization"
 quda.init_comms(grid_size)
@@ -27,10 +27,11 @@ assert MPI.Is_initialized(), "MPI is not initialized by QUDA"
 gauge_param = quda.newQudaGaugeParam() 
 inv_param = quda.newQudaInvertParam() 
 cs_param = quda.ColorSpinorParam() 
+#cs_param = quda.LatticeFieldParam() 
 
 # Set gauge params
 gauge_param.type = quda.enum_quda.QUDA_SU3_LINKS
-gauge_param.X = np.array(lattice_dim)/grid_size # local lattice dimensions
+gauge_param.X = np.copy(np.array(lattice_dim)/grid_size) # local lattice dimensions
 gauge_param.cpu_prec = cpu_prec
 gauge_param.cuda_prec = cuda_prec
 gauge_param.cuda_prec_precondition = cuda_prec
@@ -60,6 +61,7 @@ if np.sum(grid_size) != 4:
     t_face_size = gauge_param.X[0] * gauge_param.X[1] * gauge_param.X[2] / 2
     pad_size = max([x_face_size, y_face_size, z_face_size, t_face_size])
 gauge_param.ga_pad = int(pad_size)
+gauge_param.ga_pad = 2000
 
 gauge_param.struct_size = quda.cfunc.sizeof(gauge_param)
 
@@ -86,11 +88,26 @@ inv_param.Nsteps = 2
 inv_param.tol = 1e-12
 inv_param.tol_restart = 1e-6
 
+
 # Initialize the spinor params
+cs_param.nVec = 1
 cs_param.nColor = 3
 cs_param.nSpin = 4
 cs_param.nDim = 4
-cs_param.x = gauge_param.X
+cs_param.x[:cs_param.nDim] = np.copy(gauge_param.X) # the extra [:cs_param.nDim] is needed here because 
+                                                    # cs_param.x has a length of QUDA_MAX_DIM = 6 
+cs_param.setPrecision(cpu_prec) 
+cs_param.siteSubset = quda.enum_quda.QUDA_FULL_SITE_SUBSET
+cs_param.print()
+
+assert cs_param.Precision() == cpu_prec, "Precision is not set properly"
+
+# Doing some checks on gauge_param to test setters and getters
+original_X = np.copy(gauge_param.X) # important to copy!
+gauge_param.X = [3, 2, 1, 0]
+gauge_param.X[-1] = -100
+assert list(gauge_param.X) == [3, 2, 1, -100]
+gauge_param.X = original_X # restore original value after testings
 
 # Create the gauge field buffer and load the file
 gauge_field = np.full((4, np.prod(gauge_param.X), 3, 3, 2), fill_value=np.nan, dtype=np.double)
@@ -118,16 +135,6 @@ print("Test passed: gauge_field is unitary")
 
 # Create some spinor fields             
 
-"""
-print(gauge_param.X)
-gauge_param.X = [3,2,1,0]
-gauge_param.X[-1] = 100
-#gauge_param.X[5] = 1000 # KABOOM!
-#gauge_param.X = [5,6,7,8,9] # KABOOM! Wrong length!
-print(gauge_param.X.shape) # it is also a numpy array
-print(type(gauge_param.X))
-print(gauge_param.X)
-"""
 
 quda.endQuda() # this will empty all CUDA resources and bunch of stuff
 

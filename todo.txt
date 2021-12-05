@@ -47,4 +47,6 @@ https://developer.lsst.io/pybind11/style.html
     https://github.com/pybind/pybind11/issues/645
     https://github.com/pybind/pybind11/issues/1148
 
-12. Always use c order for numpy arrays. Check them always (1D array does not matter though)
+13. Always use c order for numpy arrays. Check them always (1D array does not matter though)
+
+12. python-devtools are needed for this to work (for example, when installing python with miniconda, python-devtools are not packaged by default)

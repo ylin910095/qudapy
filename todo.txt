@@ -46,3 +46,5 @@ https://developer.lsst.io/pybind11/style.html
     https://stackoverflow.com/questions/66499414/pybind11-not-downcasting-to-non-polymorphic-base-class
     https://github.com/pybind/pybind11/issues/645
     https://github.com/pybind/pybind11/issues/1148
+
+12. Always use c order for numpy arrays. Check them always (1D array does not matter though)

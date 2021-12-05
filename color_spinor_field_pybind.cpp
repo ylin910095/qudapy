@@ -34,18 +34,11 @@ void check_precision(const py::array &field) {
 }
 */
 
-//TODO: FIX THIS. Only accept np.int32 - other types, such as int and np.int64, can 
-// not be used
-void check_lattice_site_index(const py::buffer_info &buf, 
-                              const quda::ColorSpinorField &obj) {
-    throw std::runtime_error("FIX THIS");
-    // Check checks
-    if (buf.itemsize != sizeof(int) && buf.itemsize != sizeof(long int)) {
-        throw std::runtime_error("y must be a 1D array of ints");
-    }
-    std::vector<py::ssize_t> shape1d = {obj.Ndim()};
-    if (buf.shape != shape1d) {
-        throw std::runtime_error("y has the wrong dimensions");
+void check_lattice_site_index(const py::array& y, int ndim) {
+    if (!py::isinstance<py::array_t<std::int32_t>>(y))
+        throw std::runtime_error("Index array must have dtype = np.int32 precision");
+    if (y.ndim() != 1 || y.shape(0) != ndim) {
+        throw std::runtime_error("Index array has the wrong dimensions or shape");
     }
 }
 
@@ -362,11 +355,11 @@ void init_ColorSpinorField(py::module_ &m) {
     cl.def("LatticeIndex", 
         [](py::object& self, py::array &y, int i){
             quda::ColorSpinorField& obj = self.cast<quda::ColorSpinorField&>(); 
-            pybind11::buffer_info buf = y.request();
 
             // Check checks
-            check_lattice_site_index(buf, obj);
+            check_lattice_site_index(y, obj.Ndim());
 
+            pybind11::buffer_info buf = y.request();
             auto butptr = static_cast<int*>(buf.ptr);
             obj.LatticeIndex(butptr, i);
         },
@@ -378,11 +371,11 @@ void init_ColorSpinorField(py::module_ &m) {
     cl.def("OffsetIndex", 
         [](const py::object& self, py::array &y){
             quda::ColorSpinorField& obj = self.cast<quda::ColorSpinorField&>(); 
-            pybind11::buffer_info buf = y.request();
 
             // Check checks
-            check_lattice_site_index(buf, obj);
+            check_lattice_site_index(y, obj.Ndim());
             
+            pybind11::buffer_info buf = y.request();
             auto butptr = static_cast<int*>(buf.ptr);
             int i;
             obj.OffsetIndex(i, butptr);

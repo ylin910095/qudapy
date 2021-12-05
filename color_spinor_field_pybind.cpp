@@ -13,17 +13,19 @@ void check_color_spinor_param(const quda::ColorSpinorField &obj) {
 }
 
 // Check if the precision of field is consistent with the precision of param
+/*
 void check_precision(const quda::ColorSpinorParam &sparam, const py::array &field) {
     if (sparam.Precision() == QUDA_SINGLE_PRECISION) {
-        if (!py::isinstance<py::array_t<float>>(field))
+        if (!py::isinstance<py::array_t<float,py::array::c_style>>(field))
             throw std::runtime_error("Inconsistent data type");
     } else if (sparam.Precision() == QUDA_DOUBLE_PRECISION) {
-        if (!py::isinstance<py::array_t<double>>(field))
+        if (!py::isinstance<py::array_t<double,py::array::c_style>>(field))
             throw std::runtime_error("Inconsistent data type");
     } else {
         throw std::runtime_error("Only single and double precisions are supported for the python binding");
     } 
 }
+*/
 
 /*
 void check_precision(const py::array &field) {
@@ -32,10 +34,13 @@ void check_precision(const py::array &field) {
 }
 */
 
+//TODO: FIX THIS. Only accept np.int32 - other types, such as int and np.int64, can 
+// not be used
 void check_lattice_site_index(const py::buffer_info &buf, 
                               const quda::ColorSpinorField &obj) {
+    throw std::runtime_error("FIX THIS");
     // Check checks
-    if (buf.itemsize != sizeof(int)) {
+    if (buf.itemsize != sizeof(int) && buf.itemsize != sizeof(long int)) {
         throw std::runtime_error("y must be a 1D array of ints");
     }
     std::vector<py::ssize_t> shape1d = {obj.Ndim()};
@@ -86,7 +91,7 @@ void init_ColorSpinorParam(py::module_ &m) {
             quda::ColorSpinorParam &obj = self.cast<quda::ColorSpinorParam &>();
             return attr_getter<quda::ColorSpinorParam, int>(self, QUDA_MAX_DIM, &obj.x[0]);
         },
-        [](py::object &self, const py::array_t<int> &a) {
+        [](py::object &self, const py::array_t<int, py::array::c_style> &a) {
             quda::ColorSpinorParam &obj = self.cast<quda::ColorSpinorParam &>();
             return attr_setter<quda::ColorSpinorParam, int>(self, QUDA_MAX_DIM, &obj.x[0], a);
         }
@@ -102,7 +107,7 @@ void init_ColorSpinorParam(py::module_ &m) {
             quda::ColorSpinorParam &obj = self.cast<quda::ColorSpinorParam &>();
             return attr_getter<quda::ColorSpinorParam, int>(self, obj.nDim, &obj.r[0]);
         },
-        [](py::object &self, const py::array_t<int> &a) 
+        [](py::object &self, const py::array_t<int, py::array::c_style> &a) 
         {
             quda::ColorSpinorParam &obj = self.cast<quda::ColorSpinorParam &>();
             return attr_setter<quda::ColorSpinorParam, int>(self, obj.nDim, &obj.r[0], a);
@@ -119,7 +124,7 @@ void init_ColorSpinorParam(py::module_ &m) {
     
     cl.def(py::init(
         [](py::array &V, QudaInvertParam &inv_param, 
-           const py::array_t<int> &X, const bool pc_solution, QudaFieldLocation location)
+           const py::array_t<int, py::array::c_style> &X, const bool pc_solution, QudaFieldLocation location)
         {   
             py::buffer_info V_buf = V.request();
             py::buffer_info X_buf = X.request();
@@ -177,7 +182,7 @@ void init_ColorSpinorParam(py::module_ &m) {
 } // init_ColorSpinorParam
 
 void init_ColorSpinorField(py::module_ &m) {
-    py::class_<quda::ColorSpinorField, std::unique_ptr<quda::ColorSpinorField>, quda::LatticeField> 
+    py::class_<quda::ColorSpinorField, quda::LatticeField> 
           cl(m, "ColorSpinorField");
 
     // No constructors -- it is an abstract class
@@ -192,7 +197,7 @@ void init_ColorSpinorField(py::module_ &m) {
         {    
             quda::ColorSpinorField& obj = self.cast<quda::ColorSpinorField&>(); 
             auto x = obj.X();
-            return py::array_t<int>(QUDA_MAX_DIM, x);
+            return py::array_t<int, py::array::c_style>(QUDA_MAX_DIM, x);
         }, 
         py::return_value_policy::copy);
 
@@ -290,7 +295,7 @@ void init_ColorSpinorField(py::module_ &m) {
         {    
             quda::ColorSpinorField& o = self.cast<quda::ColorSpinorField&>(); 
             auto gf = o.GhostFace();
-            return py::array_t<int>(QUDA_MAX_DIM, gf);
+            return py::array_t<int, py::array::c_style>(QUDA_MAX_DIM, gf);
         });
 
     cl.def("GhostFaceCB", 
@@ -298,7 +303,7 @@ void init_ColorSpinorField(py::module_ &m) {
         {    
             quda::ColorSpinorField& o = self.cast<quda::ColorSpinorField&>(); 
             auto gfcb = o.GhostFaceCB();
-            return py::array_t<int>(QUDA_MAX_DIM, gfcb);
+            return py::array_t<int, py::array::c_style>(QUDA_MAX_DIM, gfcb);
         });
 
     cl.def("GhostOffset", &quda::ColorSpinorField::GhostOffset,
@@ -361,7 +366,7 @@ void init_ColorSpinorField(py::module_ &m) {
 
             // Check checks
             check_lattice_site_index(buf, obj);
-            
+
             auto butptr = static_cast<int*>(buf.ptr);
             obj.LatticeIndex(butptr, i);
         },

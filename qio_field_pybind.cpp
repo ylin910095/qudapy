@@ -3,8 +3,7 @@
 namespace py = pybind11;
 
 void init_gauge_pointer_array(void *ptr[4], const void* gauge_ptr,
-                              QudaPrecision prec, int local_volume, int site_size)
-{
+                              QudaPrecision prec, int local_volume, int site_size) {
     if (prec == QUDA_DOUBLE_PRECISION) 
     {   
         for (int dir = 0; dir < 4; dir++) ptr[dir] = &((double *) gauge_ptr)[dir * local_volume * site_size];
@@ -16,8 +15,7 @@ void init_gauge_pointer_array(void *ptr[4], const void* gauge_ptr,
     }
 }
 
-void init_qio_field_pybind(py::module_ &m) 
-{
+void init_qio_field_pybind(py::module_ &m) {
     //Add submodule
     auto qio_module = m.def_submodule("qio_field", "Wrapper to qio_field.h");
 
@@ -34,8 +32,7 @@ void init_qio_field_pybind(py::module_ &m)
     qio_module.def("read_gauge_field",
     [](std::string filename, py::array &gauge,
        QudaPrecision prec, const std::array<int, 4> X,
-       int gauge_site_size) 
-    {
+       int gauge_site_size) {
         int local_volume = X[0] * X[1] * X[2] * X[3];
         int n_dir = 4;
         py::buffer_info buf = gauge.request();
@@ -55,15 +52,10 @@ void init_qio_field_pybind(py::module_ &m)
             throw std::runtime_error("Inconsistent numpy array shape");
         };
 
-        // Type checks
-        if (prec == QUDA_SINGLE_PRECISION) {
-            if (!py::isinstance<py::array_t<float>>(gauge))
-                throw std::runtime_error("Inconsistent data type");
-        } else if (prec == QUDA_DOUBLE_PRECISION) {
-            if (!py::isinstance<py::array_t<double>>(gauge))
-                throw std::runtime_error("Inconsistent data type");
-        };
-
+        // Check data ordering and precision
+        check_c_constiguous(gauge);
+        check_quda_array_precision(gauge, prec);
+        
         // Read the gauge field
         void *tmp[4]; // because QIO does not like *gauge directly for some reasons
         int argc = 1;   

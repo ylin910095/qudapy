@@ -9,6 +9,8 @@
 #include "quda.h"
 #include "qio_field.h"
 
+#include "utility.hpp"
+
 // Declare utility functions
 void init_gauge_pointer_array(void *ptr[4], const void* gauge_ptr,
                               QudaPrecision prec, int local_volume, int site_size);

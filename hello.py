@@ -10,7 +10,7 @@ import quda
 import numpy as np
 
 lattice_dim = (12, 12, 12, 24)
-gauge_file = "/data/d10b/ensembles/isoClover/cl21_12_24_b6p1_m0p2800m0p2450/cl21_12_24_b6p1_m0p2800m0p2450/Lattices/cl21_12_24_b6p1_m0p2800m0p2450-1a/cfgs/cl21_12_24_b6p1_m0p2800m0p2450-1a_cfg_1000.lime"
+gauge_file = "./test_config.lime"
 clover_csw = 1.24930970916466 # is this correct?
 solve_tol = 1e-12
 mass = -0.2800

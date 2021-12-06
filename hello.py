@@ -13,8 +13,22 @@ lattice_dim = (12, 12, 12, 24)
 gauge_file = "./test_config.lime"
 clover_csw = 1.24930970916466 # is this correct?
 solve_tol = 1e-12
+
+# 72 = real numbers per block-diagonal clover matrix 
+# From https://arxiv.org/abs/1109.2935 
+# Each clover matrix has a Hermitian block diagonal, anti-
+# Hermitian block off-diagonal structure, and can be fully described
+# by 72 real numbers.
+# Also see appendix A of https://arxiv.org/abs/2109.10687
+# \sigma_{\mu\nu} gives 6 * 4 = 24 real numbers for all 6 directions of mu, nu
+# F_{\mu\nu} gives 6 * (3**2 - 1) = 48 real numbers for all 6 directions of mu, nu
+# 72 = 48 + 24 (is this the correct way of counting?)
+clover_site_size = 72
+
 mass = -0.2800
 Nsrc = 2 # number of random source vectors for testings
+gauge_site_size = 18 # storing all 9 complex numbers from a SU(3) matrix
+grid_size = np.array([1, 1, 1, 1]) # grid_size (x, y, z, t) 
 
 # Precisions!
 cpu_prec = quda.enum_quda.QUDA_DOUBLE_PRECISION
@@ -22,9 +36,6 @@ cpu_prec_sloppy = quda.enum_quda.QUDA_HALF_PRECISION
 cuda_prec = quda.enum_quda.QUDA_DOUBLE_PRECISION
 cuda_prec_sloppy = quda.enum_quda.QUDA_HALF_PRECISION
 cuda_prec_precondition = cuda_prec
-
-gauge_site_size = 18 # storing all 9 complex numbers from SU(3)
-grid_size = np.array([1, 1, 1, 1]) # grid_size (x, y, z, t) 
 
 assert MPI.Is_initialized() == False, "MPI is initialized before QUDA initialization"
 quda.init_comms(grid_size)
@@ -89,7 +100,13 @@ inv_param.clover_cuda_prec_precondition = cuda_prec_precondition
 inv_param.clover_cuda_prec_precondition = quda.enum_quda.QUDA_DOUBLE_PRECISION
 inv_param.clover_order = quda.enum_quda.QUDA_PACKED_CLOVER_ORDER
 inv_param.clover_coeff = clover_csw * inv_param.kappa
-inv_param.compute_clover_trlog = True
+inv_param.compute_clover_trlog = 0
+inv_param.compute_clover = 1 # compute the clover field on the device 
+inv_param.return_clover = 0 # copy the computed clover field to the host
+inv_param.compute_clover_inverse = 1 # compute the clover inverse field on the device 
+inv_param.return_clover_inverse = 0 # copy the computed clover field to the host
+inv_param.cl_pad = 0 # for clover
+inv_param.sp_pad = 0 # the padding to use for the fermion fields 
 
 # Set general inverter params based on tests/utils/set_params.cpp
 inv_param.inv_type = quda.enum_quda.QUDA_CGNE_INVERTER
@@ -130,9 +147,10 @@ in_quark_list = [quda.ColorSpinorField.Create(cs_param) for i in range(Nsrc)]
 out_quark_list = [quda.ColorSpinorField.Create(cs_param) for i in range(Nsrc)]
 for i in in_quark_list:
     i.Source(quda.enum_quda.QUDA_RANDOM_SOURCE)
+
+    # Make sure this looks correct
     lattice_indx = np.zeros(4, dtype=np.int32)
-    i.LatticeIndex(lattice_indx, 12**3*24-1)
-    print(lattice_indx)
+    i.LatticeIndex(lattice_indx, 1526)
 
 # Doing some checks on gauge_param to test setters and getters
 original_X = np.copy(gauge_param.X) # important to copy!
@@ -142,7 +160,7 @@ assert list(gauge_param.X) == [3, 2, 1, -100]
 gauge_param.X = original_X # restore original value after testings
 
 # Create the gauge field buffer and load the file
-gauge_field = np.full((4, np.prod(gauge_param.X), 3, 3, 2), fill_value=np.nan, dtype=np.float32)
+gauge_field = np.full((4, np.prod(gauge_param.X), 3, 3, 2), fill_value=np.nan, dtype=np.double)
 quda.qio_field.read_gauge_field(gauge_file, gauge_field, cpu_prec, 
                                 gauge_param.X, gauge_site_size)
 gauge_field = gauge_field.view(np.complex128)[..., 0] # eliminate the last complex dimension after view
@@ -164,6 +182,12 @@ idx = np.arange(3)
 unit_gauge[..., idx, idx] = 1.0   
 assert np.allclose(UUdagger, unit_gauge), "gauge field is not unitary"
 print("Test passed: gauge_field is unitary")
+
+# Construct clover field
+clover_field = np.full((np.prod(gauge_param.X) * clover_site_size), fill_value=np.nan, dtype=np.double)
+clovinv_fied = np.full((np.prod(gauge_param.X) * clover_site_size), fill_value=np.nan, dtype=np.double)
+
+quda.loadCloverQuda(clover_field, clovinv_fied, inv_param)
 
 # Try to delete memory created from the QUDA side to make sure no leaks there
 del check 

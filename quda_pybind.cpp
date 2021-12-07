@@ -89,6 +89,7 @@ void init_quda_pybind(py::module_ &m)
         QMP_thread_level_t tl;
         QMP_init_msg_passing(&argc, &argv, QMP_THREAD_SINGLE, &tl);
 
+
         // Make sure the QMP logical ordering matches QUDA's
         int map[] = {0, 1, 2, 3}; // [t, z, y, x] row-major with x fastest moving
         QMP_declare_logical_topology_map(comm_dims.data(), n_dims, map, n_dims);
@@ -510,10 +511,9 @@ void init_quda_pybind(py::module_ &m)
         [] (py::array &h_clover, py::array &h_clovinv, QudaInvertParam *inv_param)
         {
             // TODO: DO SOME CHECKS HERE
-
-            //py::buffer_info buf_clover = h_clover.request();
-            //py::buffer_info buf_clovinv = h_clovinv.request();
-            loadCloverQuda(NULL, NULL, inv_param);
+            py::buffer_info buf_clover = h_clover.request();
+            py::buffer_info buf_clovinv = h_clovinv.request();
+            loadCloverQuda(buf_clover.ptr, buf_clovinv.ptr, inv_param);
         },
         "h_clover"_a, "h_clovinv"_a, "inv_param"_a
     );

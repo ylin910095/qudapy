@@ -2,7 +2,7 @@
 # Borrowed from https://stackoverflow.com/questions/8025766/makefile-auto-dependency-generation
 CXX = mpic++
 CXXFLAGS = -std=c++17 -DQMP_COMMS -DHAVE_QIO -DMULTI_GPU
-CPPFLAGS = -fPIC -MD -MP -O3 -Wall -shared
+CPPFLAGS = -fPIC -MD -MP -Wall -shared
 QUDA_DIR = /data/d10b/users/ylin/quda/build_1080
 CUDA_DIR = /opt/software/cuda-11.2.0
 

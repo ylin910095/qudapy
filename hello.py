@@ -171,7 +171,6 @@ assert gauge_field.flags.c_contiguous, "Fail to load gauge field. The data is no
 quda.loadGaugeQuda(gauge_field, gauge_param) # load to device
 plaq = np.full(3, np.nan, dtype=np.double) 
 quda.plaqQuda(plaq)
-quda.freeGaugeQuda()
 print(f"total plaq = {plaq[0]}, spatial plaq = {plaq[1]}, temporal plaq = {plaq[2]}")
 
 # Test unitarity
@@ -187,6 +186,7 @@ print("Test passed: gauge_field is unitary")
 clover_field = np.full((np.prod(gauge_param.X) * clover_site_size), fill_value=np.nan, dtype=np.double)
 clovinv_fied = np.full((np.prod(gauge_param.X) * clover_site_size), fill_value=np.nan, dtype=np.double)
 
+# TIL: QUDA will segfault if the gauge field is not on thd device
 quda.loadCloverQuda(clover_field, clovinv_fied, inv_param)
 
 # Try to delete memory created from the QUDA side to make sure no leaks there
@@ -196,6 +196,8 @@ for i, j in zip(in_quark_list, out_quark_list):
     del j
 del in_quark_list
 del out_quark_list # this is not suffice for some reasons?
+quda.freeGaugeQuda() # free the gauge field on the device
+quda.freeCloverQuda() # free the clover field on the device
 
 quda.endQuda() # this will empty all CUDA resources and bunch of stuff
 

@@ -53,8 +53,7 @@ void init_qio_field_pybind(py::module_ &m) {
         };
 
         // Check data ordering and precision
-        check_c_constiguous(gauge);
-        check_quda_array_precision(gauge, prec);
+        check_precision_c_contiguous(gauge, prec);
         
         // Read the gauge field
         void *tmp[4]; // because QIO does not like *gauge directly for some reasons

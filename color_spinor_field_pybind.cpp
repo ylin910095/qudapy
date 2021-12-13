@@ -1,6 +1,7 @@
 #include "color_spinor_field_pybind.hpp"
 
-void check_color_spinor_param(const quda::ColorSpinorField &obj) {
+// Some restrictions on the interface to make life simpler
+inline void check_color_spinor_param(const quda::ColorSpinorField &obj) {
             if (obj.Nvec() != 1)
                 throw py::value_error("Python interface is only implemented "
                                             "for nVec = 1");
@@ -119,6 +120,8 @@ void init_ColorSpinorParam(py::module_ &m) {
         [](py::array &V, QudaInvertParam &inv_param, 
            const py::array_t<int, py::array::c_style> &X, const bool pc_solution, QudaFieldLocation location)
         {   
+            // TODO: do checks on V and X!
+            
             py::buffer_info V_buf = V.request();
             py::buffer_info X_buf = X.request();
             auto V_ptr = static_cast<void*>(V_buf.ptr);
@@ -383,9 +386,10 @@ void init_ColorSpinorField(py::module_ &m) {
         }
     );   
 
-    cl.def_static("Create", py::overload_cast<const quda::ColorSpinorParam &>(&quda::ColorSpinorField::Create));     
+    cl.def_static("Create", 
+        py::overload_cast<const quda::ColorSpinorParam &>(&quda::ColorSpinorField::Create));     
     cl.def_static("Create",
-      py::overload_cast<const quda::ColorSpinorField &, const quda::ColorSpinorParam &>(&quda::ColorSpinorField::Create));     
+        py::overload_cast<const quda::ColorSpinorField &, const quda::ColorSpinorParam &>(&quda::ColorSpinorField::Create));     
 
     // Don't need them yet - skip
     /*    

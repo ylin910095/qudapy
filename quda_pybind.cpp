@@ -13,6 +13,7 @@
 #include "communicator_quda.h" // for communicator_quda_pybind.hpp
 
 // Binding headers
+#include "pyutils.hpp"
 #include "object_pybind.hpp" // for quda::object abstract base class. Don't use in python
 #include "cfunc_pybind.hpp"
 #include "utility.hpp"
@@ -48,6 +49,9 @@ PYBIND11_MODULE(quda, m)
 
     // Initialize some common C functions
     init_cfunc_pybind(m);
+
+    // Initialize some custom functions that is not part of the QUDA public API
+    init_pyutils(m);
 
     // Initialize this first to define types
     init_enum_quda_pybind(m);
@@ -508,11 +512,34 @@ void init_quda_pybind(py::module_ &m)
     m.def("freeGaugeQuda", &freeGaugeQuda);
 
     m.def("loadCloverQuda", 
-        [] (py::array &h_clover, py::array &h_clovinv, QudaInvertParam *inv_param)
-        {
-            // TODO: DO SOME CHECKS HERE
-            py::buffer_info buf_clover = h_clover.request();
-            py::buffer_info buf_clovinv = h_clovinv.request();
+        [] (py::object &h_clover, py::object &h_clovinv, QudaInvertParam *inv_param)
+        {     
+            // Map None to nullptr
+            if (py::isinstance<py::none>(h_clover) && py::isinstance<py::none>(h_clovinv)) {
+                loadCloverQuda(nullptr, nullptr, inv_param);
+                return;
+            } else if (!py::isinstance<py::array>(h_clover) || !py::isinstance<py::array>(h_clovinv)) {
+                // Maybe also support one None and one not None?
+                throw std::runtime_error("Either both h_clover and h_clovinv must be None or neither can be None");
+            }
+
+            // Not-None case
+            auto hc = reinterpret_cast<py::array &>(h_clover); // not sure why the normal cast won't work...
+            auto hci = reinterpret_cast<py::array &>(h_clovinv);
+
+            // Checks
+            // WARNING: This functions cannot check whether we have allocted 
+            //          the correct amount of memory for the clover fields because
+            //          QudaInvertParam does not contain the size of the lattice.
+            //          This could potentially cause segfaults.
+            // TODO: Implement some checks in the python wrapper?
+            check_c_constiguous(hc);
+            check_c_constiguous(hci);
+            check_quda_array_precision(hc, inv_param->clover_cpu_prec);
+            check_quda_array_precision(hci, inv_param->clover_cpu_prec);
+
+            py::buffer_info buf_clover = hc.request();
+            py::buffer_info buf_clovinv = hci.request();
             loadCloverQuda(buf_clover.ptr, buf_clovinv.ptr, inv_param);
         },
         "h_clover"_a, "h_clovinv"_a, "inv_param"_a
@@ -520,9 +547,19 @@ void init_quda_pybind(py::module_ &m)
 
     m.def("freeCloverQuda", &freeCloverQuda);
 
+    m.def("invertQuda", 
+        [](py::array &h_x, py::array &h_b, QudaInvertParam *param) {
+          check_c_constiguous(h_x);
+          check_c_constiguous(h_b);
+          check_quda_array_precision(h_x, param->cpu_prec);
+          check_quda_array_precision(h_b, param->cpu_prec);
+          py::buffer_info buf_x = h_x.request();
+          py::buffer_info buf_b = h_b.request();
+          invertQuda(buf_x.ptr, buf_b.ptr, param);
+    });
+
     m.def("plaqQuda",
-        [] (py::array_t<double> plaq)
-        {
+        [](py::array_t<double> plaq) {
             py::buffer_info buf = plaq.request();
 
             // Safety checks
@@ -535,4 +572,6 @@ void init_quda_pybind(py::module_ &m)
             plaqQuda(tmp);
         }
     );
+
+    m.def("performSTOUTnStep", &performSTOUTnStep, "n_steps"_a, "rho"_a, "meas_interval"_a);
 }; // end init_quda_pybind

@@ -26,9 +26,10 @@ solve_tol = 1e-12
 clover_site_size = 72
 
 mass = -0.2800
-Nsrc = 2 # number of random source vectors for testings
+Nsrc = 120 # number of random source vectors for testings
 gauge_site_size = 18 # storing all 9 complex numbers from a SU(3) matrix
-grid_size = np.array([1, 1, 1, 1]) # grid_size (x, y, z, t) 
+grid_size = np.array([1, 1, 2, 2]) # grid_size (x, y, z, t) 
+rho = 0.125 # for the stout smearing
 
 # Precisions!
 cpu_prec = quda.enum_quda.QUDA_DOUBLE_PRECISION
@@ -36,6 +37,8 @@ cpu_prec_sloppy = quda.enum_quda.QUDA_HALF_PRECISION
 cuda_prec = quda.enum_quda.QUDA_DOUBLE_PRECISION
 cuda_prec_sloppy = quda.enum_quda.QUDA_HALF_PRECISION
 cuda_prec_precondition = cuda_prec
+
+quda.pyutils.setQudaVerbosityStdout(quda.enum_quda.QUDA_SILENT)
 
 assert MPI.Is_initialized() == False, "MPI is initialized before QUDA initialization"
 quda.init_comms(grid_size)
@@ -81,10 +84,8 @@ if np.sum(grid_size) != 4:
     t_face_size = gauge_param.X[0] * gauge_param.X[1] * gauge_param.X[2] / 2
     pad_size = max([x_face_size, y_face_size, z_face_size, t_face_size])
 gauge_param.ga_pad = int(pad_size)
-gauge_param.ga_pad = 2000
-
+gauge_param.ga_pad = 1728
 gauge_param.struct_size = quda.cfunc.sizeof(gauge_param)
-
 
 # Set clover params based on tests/utils/set_params.cpp
 inv_param.mass = mass
@@ -93,6 +94,8 @@ inv_param.laplace3D = -1 # (idk what it means) omit this direction
                          # from laplace operator: x,y,z,t -> 0,1,2,3 (-1 is full 4D) 
 inv_param.Ls = 1 # not domain wall
 inv_param.dslash_type = quda.enum_quda.QUDA_CLOVER_WILSON_DSLASH
+inv_param.cpu_prec = cpu_prec
+inv_param.cuda_prec = cuda_prec
 inv_param.clover_cpu_prec = cpu_prec
 inv_param.clover_cuda_prec = cuda_prec
 inv_param.clover_cuda_prec_sloppy = cuda_prec_sloppy
@@ -107,9 +110,15 @@ inv_param.compute_clover_inverse = 1 # compute the clover inverse field on the d
 inv_param.return_clover_inverse = 0 # copy the computed clover field to the host
 inv_param.cl_pad = 0 # for clover
 inv_param.sp_pad = 0 # the padding to use for the fermion fields 
+inv_param.maxiter = 2000
+inv_param.reliable_delta = 0.1
+inv_param.preserve_source = quda.enum_quda.QUDA_PRESERVE_SOURCE_YES # keep the source intact
+inv_param.gamma_basis = quda.enum_quda.QUDA_DEGRAND_ROSSI_GAMMA_BASIS
+inv_param.dirac_order = quda.enum_quda.QUDA_QDP_DIRAC_ORDER
+inv_param.verbosity = quda.enum_quda.QUDA_SUMMARIZE
 
 # Set general inverter params based on tests/utils/set_params.cpp
-inv_param.inv_type = quda.enum_quda.QUDA_CGNE_INVERTER
+inv_param.inv_type = quda.enum_quda.QUDA_CG_INVERTER
 inv_param.solution_type = quda.enum_quda.QUDA_MAT_SOLUTION
 inv_param.solve_type = quda.enum_quda.QUDA_NORMOP_SOLVE
 inv_param.matpc_type = quda.enum_quda.QUDA_MATPC_EVEN_EVEN
@@ -168,7 +177,11 @@ gauge_field = gauge_field.view(np.complex128)[..., 0] # eliminate the last compl
 assert np.nan not in gauge_field, "nan in gauge field"
 assert gauge_field.flags.c_contiguous, "Fail to load gauge field. The data is not C contiguous"
 
-quda.loadGaugeQuda(gauge_field, gauge_param) # load to device
+# Gauge field stuff
+quda.loadGaugeQuda(gauge_field, gauge_param) # load to gaugePrecise
+
+quda.performSTOUTnStep(1, rho, -1) # smear one step (n=1), don't measure topological charge except for one (-1)
+quda.pyutils.copySmearedToPrecise() # need to do this after smearing for inversion
 plaq = np.full(3, np.nan, dtype=np.double) 
 quda.plaqQuda(plaq)
 print(f"total plaq = {plaq[0]}, spatial plaq = {plaq[1]}, temporal plaq = {plaq[2]}")
@@ -188,6 +201,10 @@ clovinv_fied = np.full((np.prod(gauge_param.X) * clover_site_size), fill_value=n
 
 # TIL: QUDA will segfault if the gauge field is not on thd device
 quda.loadCloverQuda(clover_field, clovinv_fied, inv_param)
+
+# Invert
+for i in range(Nsrc):
+    quda.invertQuda(out_quark_list[i].V(), in_quark_list[i].V(), inv_param)
 
 # Try to delete memory created from the QUDA side to make sure no leaks there
 del check 

@@ -59,3 +59,30 @@ inline void check_quda_array_precision(const py::object& obj, QudaPrecision prec
             throw std::runtime_error("Array precision does not match the provided QUDA precision (float64 required)");
     };
 }
+
+// Just a wrapper of check_c_constiguous and check_quda_array_precision
+inline void check_precision_c_contiguous(const py::object& obj, QudaPrecision prec) {
+    check_c_constiguous(obj);
+    check_quda_array_precision(obj, prec);
+}
+
+// Check whether obj, which is a spinor numpy array from the python side, satifies 
+// prec and local_volume requirement to prevent segfaults
+inline void check_python_spinor_array(const py::object& obj, QudaPrecision prec, int local_volume) {
+    check_c_constiguous(obj);
+    check_quda_array_precision(obj, prec);
+    auto array_obj = obj.cast<py::array>();
+    auto buf = array_obj.request();
+    if (buf.ndim != 1 && buf.ndim != 4)
+            throw std::runtime_error("Number of dimensions must be one or five with the "
+                                     "shape of (spatial, nspin, ncolor, complex)");
+    std::vector<py::ssize_t> shape1d = {local_volume* 4 * 3 * 2};
+    std::vector<py::ssize_t> shape4d = {local_volume, 4, 3, 2};
+    if (buf.ndim == 1 && buf.shape != shape1d) {
+        throw std::runtime_error("1D spinor array must have a shape of (local_volume*4*3*2)");
+    } 
+    if (buf.ndim == 4 && buf.shape != shape4d) {
+        throw std::runtime_error("4D spinor array must have a shape of "
+                                 "(local_volume, nspin=4, ncolor=3, complex=2)");
+    }
+}

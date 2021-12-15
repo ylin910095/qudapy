@@ -15,7 +15,7 @@ void init_gauge_pointer_array(void *ptr[4], const void* gauge_ptr,
     }
 }
 
-void init_qio_field_pybind(py::module_ &m) {
+void init_qio_field_pybind(py::module_ &m, bool has_qio) {
     //Add submodule
     auto qio_module = m.def_submodule("qio_field", "Wrapper to qio_field.h");
 
@@ -30,10 +30,14 @@ void init_qio_field_pybind(py::module_ &m) {
     // TODO: change X to numpy array and allow either 4 or 5 dimensions for 
     // domainwall fermions gauge field.
     qio_module.def("read_gauge_field",
-    [](std::string filename, py::array &gauge,
-       QudaPrecision prec, const std::array<int, 4> X,
-       int gauge_site_size) {
-        int local_volume = X[0] * X[1] * X[2] * X[3];
+    [has_qio](std::string filename, py::array &gauge,
+       QudaPrecision prec, const std::array<int, 4> X, int gauge_site_size) {
+        
+        if (!has_qio) {
+            throw std::runtime_error("HAVE_QIO is not enabled in qudapy compilation");
+        }
+
+        int local_volume = X[0]*X[1]*X[2]*X[3];
         int n_dir = 4;
         py::buffer_info buf = gauge.request();
         auto gauge_ptr = static_cast<void*>(buf.ptr);

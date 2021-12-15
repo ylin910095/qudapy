@@ -26,8 +26,28 @@
 namespace py = pybind11;
 using namespace py::literals; // for _a
 
+// Preprocessors stuff
+#if defined(QMP_COMMS)   
+    constexpr bool has_qmp_comms = true;
+#else
+    constexpr bool has_qmp_comms = false;
+#endif
+#if defined(MPI_COMMS)   
+    constexpr bool has_mpi_comms = true;
+#else
+    constexpr bool has_mpi_comms = false;
+#endif
+static_assert(has_qmp_comms^has_mpi_comms, "One type of communication must exist: QMP_COMMS xor MPI_COMMS");
+
+#if defined(HAVE_QIO)
+    constexpr bool has_qio = true;
+#else
+    constexpr bool has_qio = false;
+#endif
+
+
 // Declaration
-void init_quda_pybind(py::module_ &m);
+void init_quda_pybind(py::module_ &, bool);
 
 PYBIND11_MODULE(quda, m) 
 {
@@ -51,19 +71,19 @@ PYBIND11_MODULE(quda, m)
     init_cfunc_pybind(m);
 
     // Initialize some custom functions that is not part of the QUDA public API
-    init_pyutils(m);
+    init_pyutils(m, has_qmp_comms);
 
     // Initialize this first to define types
     init_enum_quda_pybind(m);
 
     // Initialize quda.h
-    init_quda_pybind(m);
+    init_quda_pybind(m, has_qmp_comms);
 
     // Initialize object.h
     init_object_pybind(m);
 
     // Initialize qio_field.h 
-    init_qio_field_pybind(m);
+    init_qio_field_pybind(m, has_qio);
 
     // Initialize communicator_quda.h 
     init_communicator_quda_pybind(m);
@@ -77,47 +97,9 @@ PYBIND11_MODULE(quda, m)
 
       
 
-void init_quda_pybind(py::module_ &m) 
-{
-    // Wrapper around initComms in tests/utils/host_utilities.cpp
-    // to initiate communications either with QMP or MPI
-    // TODO: Maybe separte into multiple files to expose finer details?
-    m.def(
-        "init_comms",
-        [](const std::vector<int> &comm_dims) {
-        int argc = 1;
-        char **argv = (char **)malloc(sizeof(char *));
-        int n_dims = 4;
+void init_quda_pybind(py::module_ &m, bool has_qmp_comms) {
 
-        #if defined(QMP_COMMS)
-        QMP_thread_level_t tl;
-        QMP_init_msg_passing(&argc, &argv, QMP_THREAD_SINGLE, &tl);
-
-
-        // Make sure the QMP logical ordering matches QUDA's
-        int map[] = {0, 1, 2, 3}; // [t, z, y, x] row-major with x fastest moving
-        QMP_declare_logical_topology_map(comm_dims.data(), n_dims, map, n_dims);
-        int rank = QMP_get_node_number();
-
-        #elif defined(MPI_COMMS)
-        MPI_Init(&argc, &argv);
-        int rank = QMP_get_node_number();
-        MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-        #endif
-
-        //QudaCommsMap func = lex_rank_from_coords_x; // TODO: IMPLEMENT THIS!!
-        initCommsGridQuda(n_dims, comm_dims.data(), NULL, NULL);
-
-        // Set the random number seed
-        srand(17 * rank + 137);
-
-        free(argv);
-        initQuda(rank); 
-        },
-        R"pbdoc(
-        Initilialize the topology and library.
-        )pbdoc"
-    );
+    // All QUDA initilaization routines are wrapped in pyutils.hpp for simplicity
 
     m.def("endQuda", &endQuda,
         R"pbdoc(
@@ -127,14 +109,13 @@ void init_quda_pybind(py::module_ &m)
 
     m.def(
         "finalize_comms",
-        []() 
-        {   
+        [has_qmp_comms]() {   
             comm_finalize();
-            #if defined(QMP_COMMS)
-            QMP_finalize_msg_passing();
-            #elif defined(MPI_COMMS)
-            MPI_Finalize();
-            #endif
+            if (has_qmp_comms) {
+                QMP_finalize_msg_passing();
+            } else {
+                MPI_Finalize();
+            }
         },
         R"pbdoc(
         Finalize all communications.

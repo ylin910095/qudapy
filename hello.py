@@ -26,7 +26,7 @@ solve_tol = 1e-12
 clover_site_size = 72
 
 mass = -0.2800
-Nsrc = 120 # number of random source vectors for testings
+Nsrc = 3 # number of random source vectors for testings
 gauge_site_size = 18 # storing all 9 complex numbers from a SU(3) matrix
 grid_size = np.array([1, 1, 2, 2]) # grid_size (x, y, z, t) 
 rho = 0.125 # for the stout smearing
@@ -38,10 +38,10 @@ cuda_prec = quda.enum_quda.QUDA_DOUBLE_PRECISION
 cuda_prec_sloppy = quda.enum_quda.QUDA_HALF_PRECISION
 cuda_prec_precondition = cuda_prec
 
-quda.pyutils.setQudaVerbosityStdout(quda.enum_quda.QUDA_SILENT)
+quda.pyutils.setQudaVerbosityStdout(quda.enum_quda.QUDA_SUMMARIZE)
 
 assert MPI.Is_initialized() == False, "MPI is initialized before QUDA initialization"
-quda.init_comms(grid_size)
+quda.pyutils.init_comms(grid_size)
 assert MPI.Is_initialized(), "MPI is not initialized by QUDA"
 
 # Create param objects

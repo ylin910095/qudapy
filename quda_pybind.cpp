@@ -476,6 +476,8 @@ void init_quda_pybind(py::module_ &m, bool has_qmp_comms) {
           "QudaInvertParam invert_param = newQudaInvertParam();\n\n"
           "C++: newQudaInvertParam() --> struct QudaInvertParam_s");
 
+    m.def("printQudaGaugeParam", &printQudaGaugeParam);
+    m.def("printQudaInvertParam", &printQudaGaugeParam);
     m.def("loadGaugeQuda", 
         [] (py::array &gauge, QudaGaugeParam* param)
         {

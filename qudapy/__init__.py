@@ -1,4 +1,3 @@
-
 # Disable automatic intialization/finalization by mpi4py
 import mpi4py
 mpi4py.rc.initialize = False
@@ -8,7 +7,7 @@ from qudapy import config
 
 import numpy as np
 import quda
-import atexit
+import atexit, copy
 
 # Define constants
 pi = np.pi
@@ -60,17 +59,46 @@ class Gauge_Field(object):
     """
     TODO: proper doc string...
     """
-    def __init__(self, ndarray, param):
-        if quda_precision[ndarray.dtype] != param.cpu_prec:
-            raise TypeError("ndarray and param must have the same precision cpu precision")
-        self.ndarray = ndarray
+    device_data = None
+
+    def __init__(self, data=None, dims=None, param=None):
+        if quda_precision[data.dtype] != param.cpu_prec:
+            raise TypeError("data and param must have the same cpu precision")
+        self.data = data
         self.param = param
+        self.dims = dims
+        self.loc = "host" 
+        self.cls = type(self) # just for conveniences
+
+    def to(self, dest):
+        # Host or device
+        if dest not in ["host", "device"]:
+            raise ValueError("Unknown destination")
+
+        # The same field is already on the device. Do nothing
+        if self.loc == dest:
+            return
+        
+        # Host to device
+        if dest == "device":
+            quda.loadGaugeQuda(self.data, self.param)
+            self.cls.device_data = self
+        # Device to host
+        elif loc == "host":
+            if self.cls.device_data is not self:
+                raise ValueError("The data on the device does not belong to this instance")
+            quda.saveGaugeQuda(self.data, self.param)
+            # Set device data to be none
+            # Technically the data still exisits on the device. However,
+            # it is much easier to enforce a single location for an obejct
+            self.cls.device_data = None 
+        self.loc = dest
 
     def __str__(self):
-        return str(self.ndarray)
+        return str(self.data)
 
 def load_gauge(gauge_file, dims, dtype=_default_complex_type, 
-               anisotropy=False, t_boundary="periodic", tadpole_coeff=1.0, **kwargs):
+               anisotropy=False, t_boundary="periodic", tadpole_coeff=1.0, dest="host", **kwargs):
     """
     TODO: proper doc string...
     """
@@ -113,39 +141,51 @@ def load_gauge(gauge_file, dims, dtype=_default_complex_type,
         raise RuntimeError("The gauge field ordering must be QUDA_QDP_GAUGE_ORDER")
 
     # Allocate memory and read with QIO
-    gauge_site_size = 18 # storing all 3*3 complex numbers = 18 real numbers from SU(3) matrices
-    gauge_field = np.full((4, np.prod(param.X), 3, 3, 2), fill_value=np.nan, dtype=np.double)
+    gauge_site_size = ncolors*ncolors*2 # storing all 3*3 complex numbers = 18 real numbers from SU(3) matrices
+    if dtype == np.complex128:
+        fdtype = np.double
+    else:
+        fdtype = np.float
+    gauge_field = np.full((4, np.prod(param.X), ncolors, ncolors, 2), fill_value=np.nan, dtype=fdtype)
     quda.qio_field.read_gauge_field(gauge_file, gauge_field, quda_precision[dtype], 
                                     param.X, gauge_site_size) 
     gauge_field = gauge_field.view(dtype)[..., 0] # eliminate the last complex dimension after view
-    return Gauge_Field(ndarray=gauge_field, param=param)
+    gf = Gauge_Field(data=gauge_field, dims=dims, param=param)
+    gf.to(dest)
+    return gf
 
-def plaq(gf: Gauge_Field=None, dtype=np.double) -> tuple:
+def plaq(gf: Gauge_Field=None, dtype=np.double, dest="device"):
     """
     TODO: proper doc string...
     """
-    if (gf is not None) and (not isinstance(gf, Gauge_Field)):
-        raise TypeError("gf has to be None or an instance of Gauge_Field")
+    if not isinstance(gf, Gauge_Field):
+        raise TypeError("gf is not an instance of Gauge_Field")
 
     # Use the exisiting copy on the gpu (gaugePrecise speicifcally in QUDA)
     # to measure the plaqutte if gf is None
-    if gf is not None:
-        quda.loadGaugeQuda(gf.ndarray, gf.param) # load to gaugePrecise 
-    ret = np.full(3, np.nan, dtype=dtype) 
+    gf.to("device")
+    ret = np.full(3, np.nan, dtype=dtype)
     quda.plaqQuda(ret)
+    gf.to(dest)
     assert np.nan not in ret
     return ret
 
-def stout(n, rho, gf: Gauge_Field=None):
+def stout(gf: Gauge_Field, n, rho, dest="device"):
     """
     TODO: proper doc string...
     """
     if n != int(n):
         raise TypeError("n must ba an integer")
-    if gf is not None and not isinstance(gf, Gauge_Field):
-        raise TypeError("gf has to be None or an instance of Gauge_Field")
-    # Use the exisiting copy on the gpu (gaugePrecise speicifcally in QUDA)
-    # to measure the plaqutte
+    if not isinstance(gf, Gauge_Field):
+        raise TypeError("gf is not an instance of Gauge_Field")
+    gf.to("device") # send to device for works!
 
-# Print usage messages from QUDA and finalize the communications upon program exit
+    # Smear n steps, don't measure topological charge except for the first one (-1)
+    # The result will be stored in gaugeSmeared in QUDA defined in interface_quda.cpp
+    quda.performSTOUTnStep(n, rho, -1) 
+    quda.pyutils.copySmearedToPrecise() # always keep the current gf in guagePrecise in QUDA
+    gf.to(dest)
+    return gf 
+
+# Print usage messages from QUDA and finalize the communications upon the program exit
 atexit.register(finalize)

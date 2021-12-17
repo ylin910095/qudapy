@@ -7,5 +7,10 @@ dims = [12, 12, 12, 24]
 gfile = "./test_config.lime"
 qp.init(grid_size) 
 gf = qp.load_gauge(gfile, dims)
+
+# Stout smear
+n = 1
+rho = 0.125
+gf = qp.stout(gf, n=n, rho=rho)
 plaq = qp.plaq(gf)
 print(f"total plaq = {plaq[0]}, spatial plaq = {plaq[1]}, temporal plaq = {plaq[2]}")

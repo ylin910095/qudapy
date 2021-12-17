@@ -479,10 +479,8 @@ void init_quda_pybind(py::module_ &m, bool has_qmp_comms) {
     m.def("printQudaGaugeParam", &printQudaGaugeParam);
     m.def("printQudaInvertParam", &printQudaGaugeParam);
     m.def("loadGaugeQuda", 
-        [] (py::array &gauge, QudaGaugeParam* param)
-        {
+        [](py::array &gauge, QudaGaugeParam* param) {
             // TODO: DO SOME CHECKS HERE
-
             py::buffer_info buf = gauge.request();
             void *tmp[4]; // because QIO does not like *gauge directly for some reasons
             auto local_volume = param->X[0] * param->X[1] * param->X[2] * param->X[3];
@@ -496,9 +494,26 @@ void init_quda_pybind(py::module_ &m, bool has_qmp_comms) {
 
     m.def("freeGaugeQuda", &freeGaugeQuda);
 
+    //void saveGaugeQuda(void *h_gauge, QudaGaugeParam *param);
+    m.def("saveGaugeQuda", 
+        [](py::array &gauge, QudaGaugeParam* param) {
+            // TODO: DO SOME CHECKS HERE
+            py::buffer_info buf = gauge.request();
+            void *tmp[4]; // because QIO does not like *gauge directly for some reasons
+            auto local_volume = param->X[0] * param->X[1] * param->X[2] * param->X[3];
+            int gauge_site_size = 18; // 18 = 3 * 3 * (real + imag) for QDP ordering
+
+            init_gauge_pointer_array(tmp, buf.ptr, param->cpu_prec, 
+                                     local_volume, gauge_site_size);
+            saveGaugeQuda(tmp, param);
+
+            // Now assign buf.ptr to the correct starting location
+            buf.ptr = tmp[0];
+        }
+    );
+
     m.def("loadCloverQuda", 
-        [] (py::object &h_clover, py::object &h_clovinv, QudaInvertParam *inv_param)
-        {     
+        [] (py::object &h_clover, py::object &h_clovinv, QudaInvertParam *inv_param) {     
             // Map None to nullptr
             if (py::isinstance<py::none>(h_clover) && py::isinstance<py::none>(h_clovinv)) {
                 loadCloverQuda(nullptr, nullptr, inv_param);

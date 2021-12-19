@@ -3,7 +3,7 @@ import mpi4py
 mpi4py.rc.initialize = False
 mpi4py.rc.finalize = False
 from mpi4py import MPI
-from qudapy import config
+from qudapy import config, comm
 
 import numpy as np
 import quda
@@ -15,7 +15,6 @@ e = np.e
 ncolors = 3
 nspins = 4
 ndims = 4
-_default_complex_type = np.complex128
 
 quda_precision = {
     np.complex64: quda.enum_quda.QUDA_SINGLE_PRECISION,
@@ -33,7 +32,7 @@ def init(grid_size):
     """
     TODO: proper doc string...
     """
-    config.grid_size = grid_size # assign to the global variable grid_size
+    comm.grid_size = grid_size # assign to the global variable grid_size
     if config._is_init:
         raise RuntimeError("QudaPy is already initialized")
     if MPI.Is_initialized(): 
@@ -84,7 +83,7 @@ class Gauge_Field(object):
             quda.loadGaugeQuda(self.data, self.param)
             self.cls.device_data = self
         # Device to host
-        elif loc == "host":
+        elif dest == "host":
             if self.cls.device_data is not self:
                 raise ValueError("The data on the device does not belong to this instance")
             quda.saveGaugeQuda(self.data, self.param)
@@ -97,7 +96,7 @@ class Gauge_Field(object):
     def __str__(self):
         return str(self.data)
 
-def load_gauge(gauge_file, dims, dtype=_default_complex_type, 
+def load_gauge(gauge_file, dims, dtype=config._default_ctype, 
                anisotropy=False, t_boundary="periodic", tadpole_coeff=1.0, dest="host", **kwargs):
     """
     TODO: proper doc string...
@@ -109,7 +108,7 @@ def load_gauge(gauge_file, dims, dtype=_default_complex_type,
 
     param.anisotropy = int(not anisotropy) # 1 == NOT anisotropy. Is this correct?
     param.t_boundary = quda_t_boundary[t_boundary]
-    param.X = np.copy(np.array(dims)/config.grid_size) # local lattice dimensions
+    param.X = np.copy(np.array(dims)/comm.grid_size) # local lattice dimensions
     param.cpu_prec = quda_precision[dtype]
     param.cuda_prec = quda_precision[dtype]
     param.cuda_prec_precondition = quda_precision[dtype]
@@ -154,7 +153,7 @@ def load_gauge(gauge_file, dims, dtype=_default_complex_type,
     gf.to(dest)
     return gf
 
-def plaq(gf: Gauge_Field=None, dtype=np.double, dest="device"):
+def plaq(gf: Gauge_Field, dtype=np.double, dest="device"):
     """
     TODO: proper doc string...
     """
@@ -163,7 +162,8 @@ def plaq(gf: Gauge_Field=None, dtype=np.double, dest="device"):
 
     # Use the exisiting copy on the gpu (gaugePrecise speicifcally in QUDA)
     # to measure the plaqutte if gf is None
-    gf.to("device")
+    if gf.loc != "device":
+        raise RuntimeError("The gauge field is not on the device")
     ret = np.full(3, np.nan, dtype=dtype)
     quda.plaqQuda(ret)
     gf.to(dest)
@@ -178,7 +178,8 @@ def stout(gf: Gauge_Field, n, rho, dest="device"):
         raise TypeError("n must ba an integer")
     if not isinstance(gf, Gauge_Field):
         raise TypeError("gf is not an instance of Gauge_Field")
-    gf.to("device") # send to device for works!
+    if gf.loc != "device":
+        raise RuntimeError("The gauge field is not on the device")
 
     # Smear n steps, don't measure topological charge except for the first one (-1)
     # The result will be stored in gaugeSmeared in QUDA defined in interface_quda.cpp

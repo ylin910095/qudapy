@@ -1,4 +1,5 @@
 import qudapy as qp
+import qudapy.host_reference as hr
 import quda
 import numpy as np
 import sys
@@ -7,6 +8,7 @@ dims = [12, 12, 12, 24]
 gfile = "./test_config.lime"
 qp.init(grid_size) 
 gf = qp.load_gauge(gfile, dims)
+gf.to("device")
 
 # Stout smear
 n = 1

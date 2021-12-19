@@ -439,9 +439,9 @@ void init_cpuColorSpinorField(py::module_ &m) {
     // Fun with unsigned ints
     cl.def("PrintVector", 
         [](py::object& self, int x_cb){
-            quda::cpuColorSpinorField& o = self.cast<quda::cpuColorSpinorField&>(); 
+            quda::cpuColorSpinorField& obj = self.cast<quda::cpuColorSpinorField&>(); 
             auto x_cb_us = static_cast<unsigned int>(x_cb);
-            o.PrintVector(x_cb_us);
+            obj.PrintVector(x_cb_us);
         }
     );   
 

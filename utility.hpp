@@ -86,3 +86,14 @@ inline void check_python_spinor_array(const py::object& obj, QudaPrecision prec,
                                  "(local_volume, nspin=4, ncolor=3, complex=2)");
     }
 }
+
+inline void init_gauge_pointer_array(void *ptr[4], const void* gauge_ptr,
+                              QudaPrecision prec, int local_volume, int site_size) {
+    if (prec == QUDA_DOUBLE_PRECISION) {   
+        for (int dir = 0; dir < 4; dir++) ptr[dir] = &((double *) gauge_ptr)[dir * local_volume * site_size];
+    } else if (prec == QUDA_SINGLE_PRECISION) {  
+        for (int dir = 0; dir < 4; dir++) ptr[dir] = &((float *) gauge_ptr)[dir * local_volume * site_size];
+    } else {
+        throw py::type_error("Unknown data precision");
+    }
+}

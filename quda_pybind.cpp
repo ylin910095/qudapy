@@ -16,12 +16,14 @@
 #include "pyutils.hpp"
 #include "object_pybind.hpp" // for quda::object abstract base class. Don't use in python
 #include "cfunc_pybind.hpp"
+#include "qmp_pybind.hpp"
 #include "utility.hpp"
 #include "enum_quda_pybind.hpp"
 #include "qio_field_pybind.hpp"
 #include "communicator_quda_pybind.hpp"
 #include "lattice_field_pybind.hpp"
 #include "color_spinor_field_pybind.hpp"
+#include "gauge_field_pybind.hpp"
 
 namespace py = pybind11;
 using namespace py::literals; // for _a
@@ -75,6 +77,9 @@ PYBIND11_MODULE(quda, m)
     // Initialize some custom functions that is not part of the QUDA public API
     init_pyutils(m, has_qmp_comms);
 
+    // Initialize some functions in qmp.h for communications
+    init_qmp_field_pybind(m, has_qmp_comms);
+
     // Initialize this first to define types
     init_enum_quda_pybind(m);
 
@@ -95,6 +100,10 @@ PYBIND11_MODULE(quda, m)
 
     // Initialize color_spinor_field.h
     init_color_spinor_field_pybind(m);
+
+
+    // Initialize color_spinor_field.h
+    init_gauge_field_pybind(m);
 }
 
       

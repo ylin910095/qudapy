@@ -63,14 +63,7 @@ void init_cpuGaugeField(py::module_ &m) {
 
             void** ghost_ptr;
             ghost_ptr = obj.Ghost();
-            std::list<py::array*> ghost_list;
-
-            py::dtype dtype;
-            if (obj.Precision() == QUDA_DOUBLE_PRECISION) {   
-                py::dtype dtype = py::dtype("double");
-            } else if (obj.Precision() == QUDA_SINGLE_PRECISION) {  
-                py::dtype dtype = py::dtype("float");
-            }
+            std::vector<py::array> ghost_list;
             
             // Initialize the return numpy array (no copying)
             // 2*obj.surfaceCB() = total surface volume (need a factor of two because sufaceCB
@@ -79,16 +72,20 @@ void init_cpuGaugeField(py::module_ &m) {
                 py::ssize_t ds = (obj.Precision() == QUDA_DOUBLE_PRECISION) ? sizeof(double) : sizeof(float); 
                 std::vector<py::ssize_t> shape = {2*obj.SurfaceCB(dir), obj.Ncolor(), obj.Ncolor(), 2};
                 std::vector<py::ssize_t> stride = {2*obj.Ncolor()*obj.Ncolor()*ds, 
-                                                   2*obj.Ncolor()*ds, 2*ds, ds};
+                                                   2*obj.Ncolor()*ds, 
+                                                   2*ds, ds}; // TODO: Fix the shape - they are wrong!
 
+                py::array pyarray;
                 // Convert to a 1D pointer
-                py::array pyarray = py::array(dtype, shape, stride, ghost_ptr[dir]);
-                ghost_list.push_back(&pyarray); 
+                if (obj.Precision() == QUDA_DOUBLE_PRECISION) {
+                    pyarray = py::array(shape, stride, (double*) ghost_ptr[dir]);
+                } else {
+                    pyarray = py::array(shape, stride, (float*) ghost_ptr[dir]);
+                }
+                ghost_list.push_back(std::move(pyarray)); 
             }
-            return ghost_list; //FIX THIS WHAT IS THE API?
-        }, py::keep_alive<0, 1>()
-    ); // keep_alive<0, 1>() - keep self(this) alive while the py::array is alive. This is needed 
-       // because oftentimes we will remove the reference of the instance in python and only work
-       // with the ghost data. If self(this) is destroyed, it will automatically deallocate
-       // the ghost data as well.
+            return ghost_list;
+        }, py::return_value_policy::reference_internal
+    ); // see https://pybind11.readthedocs.io/en/stable/advanced/functions.html
+       // This prevent self(this) from being deallocated while the returned ghost is still in use
 }

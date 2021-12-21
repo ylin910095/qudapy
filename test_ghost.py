@@ -40,3 +40,8 @@ gauge_field = gauge_field.view(np.complex128)[..., 0] # eliminate the last compl
 internal_gparam = quda.GaugeFieldParam(gauge_field, gauge_param)
 cpu_gauge_field = quda.cpuGaugeField(internal_gparam)
 ghost = cpu_gauge_field.Ghost()
+for dir in range(4):
+    if rank == 0:
+        print(dir)
+        print(np.array(ghost[dir]).shape)
+        print(ghost[dir][-1,-1,-1,-1])
